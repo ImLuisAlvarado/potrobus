@@ -79,3 +79,69 @@ btnMap.addEventListener("click", async () => {
         output.textContent = "Error mapa: " + e;
     }
 });
+
+
+
+document.getElementById("btnListBuses").addEventListener("click", async () => {
+    const res = await fetch(`${BASE}/api/buses`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnGetBus").addEventListener("click", async () => {
+    const id = prompt("ID de la unidad:");
+    if (!id) return;
+    const res = await fetch(`${BASE}/api/buses/${id}`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnCreateBus").addEventListener("click", async () => {
+    const numero = prompt("Número económico (ej: POT-02):");
+    const modelo = prompt("Modelo (ej: Vento 2023):");
+    const placa  = prompt("Placa (ej: SON-002):");
+    if (!numero || !placa) return;
+
+    const res = await fetch(`${BASE}/api/buses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero_economico: numero, modelo, placa })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnUpdateBus").addEventListener("click", async () => {
+    const id     = prompt("ID de la unidad a actualizar:");
+    const numero = prompt("Nuevo número económico:");
+    const modelo = prompt("Nuevo modelo:");
+    const placa  = prompt("Nueva placa:");
+    if (!id || !numero || !placa) return;
+
+    const res = await fetch(`${BASE}/api/buses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero_economico: numero, modelo, placa, activo: true })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnDeleteBus").addEventListener("click", async () => {
+    const id = prompt("ID de la unidad a desactivar:");
+    if (!id) return;
+    const confirmar = confirm(`¿Desactivar unidad ${id}?`);
+    if (!confirmar) return;
+
+    const res = await fetch(`${BASE}/api/buses/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnEstadoBus").addEventListener("click", async () => {
+    const id = prompt("ID de la unidad:");
+    if (!id) return;
+    const res = await fetch(`${BASE}/api/buses/${id}/estado`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});

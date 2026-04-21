@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from entities.location import Location
+from entities.bus import Bus
 
 app = Flask(__name__)
 CORS(app)
@@ -16,13 +17,73 @@ def health():
 @app.route("/api/buses", methods=["GET"])
 def list_buses():
     # TODO: devolver lista de autobuses
-    return jsonify([])
+    data = Bus.get_all()
+    return jsonify(data)
 
 @app.route("/api/buses", methods=["POST"])
 def create_bus():
     # TODO: crear autobús
     data = request.json
-    return jsonify(data), 201
+    if not data or not data.get("numero_economico") or not data.get("placa"):
+        return jsonify({"error": "faltan campos requeridos"}), 400
+    
+    new_id = Bus.create(
+        data.get("numero_economico"),
+        data.get("modelo", ""),
+        data.get("placa")
+    )
+    if new_id:
+        return jsonify({"msg": "unidad creada", "id_unidad": new_id}), 201
+    return jsonify({"error": "no se pudo crear"}), 500
+
+
+@app.route("/api/buses/<int:id_unidad>", methods=["PUT"])
+def update_bus(id_unidad):
+    data = request.json
+    if not data:
+        return jsonify({"error": "sin datos"}), 400
+    
+    ok = Bus.update(
+        id_unidad,
+        data.get("numero_economico"),
+        data.get("modelo", ""),
+        data.get("placa"),
+        data.get("activo", True)
+    )
+    if ok:
+        return jsonify({"msg": "unidad actualizada"})
+    return jsonify({"error": "no encontrada o sin cambios"}), 404
+
+
+@app.route("/api/buses/<int:id_unidad>", methods=["DELETE"])
+def delete_bus(id_unidad):
+    ok = Bus.delete(id_unidad)
+    if ok:
+        return jsonify({"msg": "unidad desactivada"})
+    return jsonify({"error": "no encontrada"}), 404
+
+
+
+@app.route("/api/buses/<int:id_unidad>", methods=["GET"])
+def get_bus(id_unidad):
+    data = Bus.get_by_id(id_unidad)
+    if data:
+        return jsonify(data)
+    return jsonify({"error": "unidad no encontrada"}), 404
+
+
+@app.route("/api/buses/<int:id_unidad>/estado", methods=["GET"])
+def get_estado_bus(id_unidad):
+    bus = Bus.get_by_id(id_unidad)
+    if not bus:
+        return jsonify({"error": "unidad no encontrada"}), 404
+    
+    recorrido = Location.get_active_recorrido(id_unidad)
+    return jsonify({
+        "unidad": bus,
+        "en_servicio": recorrido is not None,
+        "recorrido_activo": recorrido
+    })
 
 
 """Rutas para gestionar rutas y posiciones GPS de los autobuses"""

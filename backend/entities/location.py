@@ -11,7 +11,7 @@ class Location:
         connection = None
         cursor = None
         try:
-            print(f"🔄 Intentando guardar: id={id_recorrido}, {lat}, {lng}")
+            print(f"Intentando guardar: id={id_recorrido}, {lat}, {lng}")
             connection = get_connection()
             cursor = connection.cursor()
             
@@ -21,13 +21,13 @@ class Location:
             """, (id_recorrido, lat, lng))
             
             connection.commit()
-            print(f"✅ GUARDADO: {cursor.rowcount} filas afectadas")
+            print(f"GUARDADO: {cursor.rowcount} filas afectadas")
             return cursor.rowcount > 0  # True SOLO si insertó
             
         except Exception as ex:
             if connection:
                 connection.rollback()
-            print(f"❌ ERROR SQL: {ex}")
+            print(f"ERROR SQL: {ex}")
             return False
         finally:
             if cursor:
