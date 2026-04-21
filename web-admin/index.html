@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PotroBus - Admin</title>
     
+    
+    <script>
+    fetch('http://localhost:5000/api/health').then(r=>r.json()).then(data=> {
+        document.body.innerHTML += `<h3>Backend: ${data.status}</h3>`;
+    });
+    </script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
           onerror="this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'" />
@@ -36,6 +42,9 @@
     <div id="map" style="height: 500px; width: 100%; margin-top: 20px; border: 2px solid #007bff;"></div>
 
 
+
+
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             onerror="this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'"></script>
     
@@ -50,6 +59,8 @@
             }
         });
     </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
     
     <script src="app.js"></script>
 </body>

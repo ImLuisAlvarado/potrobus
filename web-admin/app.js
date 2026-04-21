@@ -5,21 +5,58 @@ const output = document.getElementById("output");
 const btnLatest = document.getElementById("btnLatest");
 const btnHistory = document.getElementById("btnHistory");
 const btnSendGps = document.getElementById("btnSendGps");
+const btnMap = document.getElementById("btnMap");
 const BASE = "http://127.0.0.1:5000";
 
-let map = null;
-let marker = null;
+// Variables globales para el mapa
+window.map = null;
+window.marker = null;
 
-btnCheck.addEventListener("click", async () => {
-  try {
-    const res = await fetch("http://127.0.0.1:5000/api/health");
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-  } catch (err) {
-    output.textContent = "Error conectando al backend: " + err;
-  }
+// Inicialización única al cargar el DOM
+document.addEventListener('DOMContentLoaded', () => {
+    const mapElement = document.getElementById('map');
+    
+    if (mapElement) {
+        window.map = L.map('map').setView([27.9269, -110.8946], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+        window.marker = L.marker([27.9269, -110.8946]).addTo(window.map).bindPopup('🚌 Esperando GPS...');
+        console.log('✅ Mapa inicializado correctamente');
+    } else {
+        console.error('Error: div #map no encontrado');
+    }
 });
 
+// Socket.io
+const socket = io('http://127.0.0.1:5000');
+
+socket.on('connect', () => {
+    console.log('🔌 Socket.io CONECTADO');
+    output.textContent += '\nSocket.io listo (GPS cada 4s)';
+});
+
+socket.on('gps_live', (data) => {
+    // esta parte no está funcionando
+    console.log('🚌 GPS RECIBIDO:', data);
+    
+    if (window.map) {
+        if (window.marker) {
+            window.marker.setLatLng([data.lat, data.lng]);
+            window.marker.setPopupContent(`${data.bus_id} ${data.velocidad}km/h`);
+        } else {
+            window.marker = L.marker([data.lat, data.lng]).addTo(window.map);
+        }
+        window.map.panTo([data.lat, data.lng]);
+    }
+});
+
+// Event Listeners (Resto de botones)
+btnCheck.addEventListener("click", async () => {
+  try {
+    const res = await fetch(`${BASE}/api/health`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+  } catch (err) { output.textContent = "Error: " + err; }
+});
 
 btnLatest.addEventListener("click", async () => {
   const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
@@ -37,47 +74,23 @@ btnSendGps.addEventListener("click", async () => {
   const res = await fetch(`${BASE}/api/gps/position`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_recorrido: 1, lat: 27.9675427, lng: -110.9185287 })
+    body: JSON.stringify({ id_recorrido: 2, lat: 27.9675, lng: -110.9185 })
   });
   const data = await res.json();
   output.textContent = JSON.stringify(data, null, 2);
 });
 
-const btnMap = document.getElementById("btnMap");
 btnMap.addEventListener("click", async () => {
-    if (!map) {
-        map = L.map('map').setView([27.9675427,-110.9185287], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-        
-
-        marker = L.marker([28.0094, -110.9108]).addTo(map)
-            .bindPopup('Bus 1 - Esperando GPS...');
-    }
-    
-
+    if (!window.map) return;
     try {
         const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
         const pos = await res.json();
-        console.log("Posición mapa:", pos);  // DEBUG
-        
         if (pos.lat && pos.lng) {
-            if (marker) map.removeLayer(marker);
-            
-
-            marker = L.marker([pos.lat, pos.lng]).addTo(map)
-                .bindPopup(`Bus 1<br>${new Date(pos.fecha_captura).toLocaleString('es-MX')}`);
-            
-            map.setView([parseFloat(pos.lat), parseFloat(pos.lng)], 16);
-            output.textContent = `📍 Actualizado: ${parseFloat(pos.lat).toFixed(5)}, ${parseFloat(pos.lng).toFixed(5)}`;
-        } else {
-            output.textContent = "Sin posición GPS aún. Envía GPS primero.";
+            window.marker.setLatLng([pos.lat, pos.lng]);
+            window.map.setView([pos.lat, pos.lng], 16);
+            output.textContent = `📍 Actualizado: ${pos.lat}, ${pos.lng}`;
         }
-    } catch (e) {
-        console.error("Error mapa:", e);
-        output.textContent = "Error mapa: " + e;
-    }
+    } catch (e) { output.textContent = "Error mapa: " + e; }
 });
 
 

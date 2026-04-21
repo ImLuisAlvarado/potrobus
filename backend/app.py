@@ -1,7 +1,17 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_socketio import SocketIO
+
+# esta se importa solo para simulación
+import random
+
+import logging
+import threading
+import time
 from entities.location import Location
 from entities.bus import Bus
+
+logging.basicConfig(level=logging.DEBUG)  
 
 app = Flask(__name__)
 CORS(app)
@@ -130,5 +140,37 @@ def ingest_position():
     Location.save(data.get("id_recorrido"), data.get("lat"), data.get("lng"))
     return jsonify({"msg": "posición guardada"}), 201
 
-if __name__ == "__main__":
-    app.run(debug=True)
+app.config['SECRET_KEY'] = 'potrobus-gps-secret-2026'
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+# Sin async_mode
+
+@socketio.on('connect')
+def handle_connect():
+    print('🔌 Cliente WebSocket conectado!')
+
+@socketio.on('test')
+def handle_test(data):
+    print(f'📨 Frontend test: {data}')
+
+def gps_simulador_simple():
+    print("🚀 THREAD GPS SIMPLE INICIADO!")
+    while True:
+        lat = 27.9269 + random.uniform(-0.01, 0.01)
+        lng = -110.8946 + random.uniform(-0.01, 0.01)
+        data = {
+            'lat': lat, 'lng': lng, 'bus_id': 'ABC-123',
+            'velocidad': random.randint(20, 60),
+            'timestamp': time.strftime('%H:%M:%S')
+        }
+        print(f"📡 LIVE GPS: {lat:.4f}, {lng:.4f} km/h:{data['velocidad']} {data['timestamp']}")
+        socketio.emit('gps_live', data)
+        print("✅ gps_live EMITTED!")
+        time.sleep(4)  # ← time.sleep FUNCIONA aquí
+
+threading.Thread(target=gps_simulador_simple, daemon=True).start()
+# Esta parte tampoco se imprime
+print("🚌 THREAD GPS ACTIVO!")
+
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
