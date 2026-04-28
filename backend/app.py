@@ -218,7 +218,7 @@ def gps_simulador_simple():
         socketio.emit('gps_live', data)
         print("¡Se emitió la señal gps_live!")
 
-        Location.save(id_recorrido=2, lat=lat, lng=lng) 
+        Location.save(id_recorrido=1, lat=lat, lng=lng) 
         print("Ubicación guardada en la base de datos")
         
         time.sleep(5)
