@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Potrobus Admin</title>
+</head>
+<body>
+    <h2>Iniciar Sesión</h2>
+    <form id="loginForm">
+        <input type="email" id="correo" placeholder="Correo" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button type="submit">Entrar</button>
+    </form>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                correo: document.getElementById('correo').value,
+                password: document.getElementById('password').value
+            };
+
+            const response = await fetch('http://localhost:5500/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                localStorage.setItem('access_token', result.access_token);
+                window.location.href = 'index.html'; // Redirige automaticamente al admin ;).
+            } else {
+                alert(result.message);
+            }
+        });
+    </script>
+</body>
+</html>

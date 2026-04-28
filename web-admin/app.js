@@ -6,7 +6,7 @@ const btnLatest = document.getElementById("btnLatest");
 const btnHistory = document.getElementById("btnHistory");
 const btnSendGps = document.getElementById("btnSendGps");
 const btnMap = document.getElementById("btnMap");
-const BASE = "http://127.0.0.1:5000";
+const BASE = "http://127.0.0.1:5500";
 
 // Variables globales para el mapa
 window.map = null;
@@ -17,31 +17,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapElement = document.getElementById('map');
     
     if (mapElement) {
-        window.map = L.map('map').setView([27.9269, -110.8946], 15);
+        window.map = L.map('map').setView([40.7825, -73.9661], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
-        window.marker = L.marker([27.9269, -110.8946]).addTo(window.map).bindPopup('🚌 Esperando GPS...');
-        console.log('✅ Mapa inicializado correctamente');
+        window.marker = L.marker([40.7825, -73.9661]).addTo(window.map).bindPopup('Esperando GPS...');
+        console.log('Mapa inicializado correctamente');
     } else {
         console.error('Error: div #map no encontrado');
     }
 });
 
 // Socket.io
-const socket = io('http://127.0.0.1:5000');
+const myToken = localStorage.getItem('access_token') || "";
+
+if (!window.socket) {
+    window.socket = io('http://127.0.0.1:5500', {
+        transports: ['websocket'],
+        query: {token: myToken},
+        upgrade: false
+    });
+}
+const socket = window.socket;
 
 socket.on('connect', () => {
-    console.log('🔌 Socket.io CONECTADO');
-    output.textContent += '\nSocket.io listo (GPS cada 4s)';
+    console.log('Socket.io CONECTADO');
+    output.textContent += '\nSocket.io listo (GPS cada 5s)';
+});
+
+socket.on('connect_error', (err) => {
+    console.error('Error de conexión:', err.message);
 });
 
 socket.on('gps_live', (data) => {
-    // esta parte no está funcionando
-    console.log('🚌 GPS RECIBIDO:', data);
+    console.log('GPS RECIBIDO:', data);
     
+    // Validar existencia de datos
+    if (!data || data.lat === undefined) return;
+
     if (window.map) {
         if (window.marker) {
             window.marker.setLatLng([data.lat, data.lng]);
-            window.marker.setPopupContent(`${data.bus_id} ${data.velocidad}km/h`);
+            window.marker.setPopupContent(`${data.bus_id || 'BUS'} | ${data.velocidad || 0} km/h`);
         } else {
             window.marker = L.marker([data.lat, data.lng]).addTo(window.map);
         }
@@ -158,3 +173,26 @@ document.getElementById("btnEstadoBus").addEventListener("click", async () => {
     const data = await res.json();
     output.textContent = JSON.stringify(data, null, 2);
 });
+
+setInterval(async () => {
+    try {
+        // Consultamos la última posición real guardada en BD
+        const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
+        const data = await res.json();
+        
+        if (data && data.lat && data.lng) {
+            console.log('Última ubicación de BD:', data);
+            
+            // Actualizar marcador
+            if (window.marker) {
+                window.marker.setLatLng([data.lat, data.lng]);
+            } else {
+                window.marker = L.marker([data.lat, data.lng]).addTo(window.map);
+            }
+            // Mover el mapa a la nueva posición
+            window.map.panTo([data.lat, data.lng]);
+        }
+    } catch (e) {
+        console.warn("Esperando datos de la base de datos...");
+    }
+}, 5000); 

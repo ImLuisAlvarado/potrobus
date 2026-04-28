@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PotroBus - Admin</title>
     
+    <script>
+        if (!localStorage.getItem('access_token')) {
+            window.location.href = 'login.html';
+        }
+    </script>
     
     <script>
-    fetch('http://localhost:5000/api/health').then(r=>r.json()).then(data=> {
+    fetch('http://localhost:5500/api/health').then(r=>r.json()).then(data=> {
         document.body.innerHTML += `<h3>Backend: ${data.status}</h3>`;
     });
     </script>
