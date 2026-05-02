@@ -40,6 +40,40 @@
         <button id="btnDeleteBus">Desactivar bus</button>
         <button id="btnEstadoBus">Estado del bus</button>
     </div>
+
+    <h2>Gestión de Rutas</h2>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btnListRutas">Ver todas las rutas</button>
+        <button id="btnCreateRuta">Crear ruta</button>
+        <button id="btnGetParadas">Ver paradas de ruta</button>
+        <button id="btnAddParada">Agregar parada</button>
+        <button id="btnMostrarRuta">Ver ruta en mapa</button>
+    </div>
+
+    <h2>Gestión de Choferes</h2>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btnListChoferes">Ver todos los choferes</button>
+        <button id="btnCreateChofer">Crear chofer</button>
+        <button id="btnUpdateChofer">Actualizar chofer</button>
+        <button id="btnDeleteChofer">Desactivar chofer</button>
+    </div>
+
+    <h2>Mensajería</h2>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btnEnviarNotificacion">Enviar notificación</button>
+    </div>
+
+    <h2>Notificaciones en tiempo real</h2>
+    <div id="notificaciones-panel" style="
+        max-height: 200px; 
+        overflow-y: auto; 
+        border: 1px solid #ccc; 
+        padding: 10px;
+        border-radius: 8px;
+        background: #f9f9f9;
+    ">
+        <p style="color: #999">Esperando notificaciones...</p>
+    </div>
     
     <pre id="output">Listo para probar APIs...</pre>
     

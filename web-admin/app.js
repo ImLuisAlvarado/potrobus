@@ -64,6 +64,23 @@ socket.on('gps_live', (data) => {
     }
 });
 
+socket.on('notificacion', (data) => {
+    console.log('NOTIFICACION:', data);
+    const color = data.tipo === 'retraso' ? '#ff4444' 
+                : data.tipo === 'salida'  ? '#007bff' 
+                : '#28a745';
+    
+    const div = document.createElement('div');
+    div.style.cssText = `
+        padding: 10px; margin: 5px 0; border-radius: 5px;
+        background: ${color}; color: white; font-weight: bold;
+    `;
+    div.textContent = `${new Date().toLocaleTimeString('es-MX')} — ${data.mensaje}`;
+    
+    document.getElementById('notificaciones-panel').prepend(div);
+});
+
+
 // Event Listeners (Resto de botones)
 btnCheck.addEventListener("click", async () => {
   try {
@@ -196,3 +213,182 @@ setInterval(async () => {
         console.warn("Esperando datos de la base de datos...");
     }
 }, 5000); 
+
+
+
+
+
+document.getElementById("btnListRutas").addEventListener("click", async () => {
+    const res = await fetch(`${BASE}/api/rutas`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnCreateRuta").addEventListener("click", async () => {
+    const nombre  = prompt("Nombre de la ruta (ej: Ruta Empalme-Guaymas):");
+    const origen  = prompt("Origen (ej: Empalme):");
+    const destino = prompt("Destino (ej: ITSON Guaymas):");
+    const desc    = prompt("Descripción (opcional):");
+    if (!nombre || !origen || !destino) return;
+
+    const res = await fetch(`${BASE}/api/rutas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, descripcion: desc, origen, destino })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnGetParadas").addEventListener("click", async () => {
+    const id = prompt("ID de la ruta:");
+    if (!id) return;
+    const res = await fetch(`${BASE}/api/rutas/${id}/paradas`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnAddParada").addEventListener("click", async () => {
+    const id_ruta = prompt("ID de la ruta:");
+    const nombre  = prompt("Nombre de la parada (ej: Campus ITSON):");
+    const lat     = prompt("Latitud (ej: 27.9675):");
+    const lng     = prompt("Longitud (ej: -110.9185):");
+    const orden   = prompt("Orden en la ruta (ej: 1):");
+    if (!id_ruta || !nombre) return;
+
+    const res = await fetch(`${BASE}/api/rutas/${id_ruta}/paradas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, latitud: lat, longitud: lng, orden: parseInt(orden) })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+
+
+document.getElementById("btnMostrarRuta").addEventListener("click", async () => {
+    // Limpiar marcadores de paradas anteriores
+    if (window.paradaMarkers) {
+        window.paradaMarkers.forEach(m => window.map.removeLayer(m));
+    }
+    if (window.rutaLine) {
+        window.map.removeLayer(window.rutaLine);
+    }
+    window.paradaMarkers = [];
+
+    const id = prompt("ID de la ruta:");
+    if (!id) return;
+
+    const res = await fetch(`${BASE}/api/rutas/${id}/paradas`);
+    const paradas = await res.json();
+
+    if (!paradas.length) {
+        output.textContent = "No hay paradas en esta ruta.";
+        return;
+    }
+
+    // Icono personalizado para paradas
+    const iconoParada = L.divIcon({
+        className: '',
+        html: '🛑',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+
+    const coordenadas = [];
+
+    paradas.filter(p => p.latitud && p.longitud).forEach(parada => {
+        const lat = parseFloat(parada.latitud);
+        const lng = parseFloat(parada.longitud);
+        coordenadas.push([lat, lng]);
+
+        const marker = L.marker([lat, lng], { icon: iconoParada })
+            .addTo(window.map)
+            .bindPopup(`<b>Parada ${parada.orden}</b><br>${parada.nombre}`);
+
+        window.paradaMarkers.push(marker);
+    });
+
+    // Línea conectando las paradas
+    window.rutaLine = L.polyline(coordenadas, {
+        color: '#007bff',
+        weight: 4,
+        dashArray: '10, 5'  // línea punteada
+    }).addTo(window.map);
+
+    // Centrar el mapa en la ruta
+    window.map.fitBounds(window.rutaLine.getBounds(), { padding: [30, 30] });
+
+    output.textContent = `Ruta mostrada con ${paradas.length} paradas`;
+});
+
+
+
+document.getElementById("btnListChoferes").addEventListener("click", async () => {
+    const res = await fetch(`${BASE}/api/choferes`);
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnCreateChofer").addEventListener("click", async () => {
+    const nombre   = prompt("Nombre:");
+    const apellido = prompt("Apellido:");
+    const telefono = prompt("Teléfono:");
+    if (!nombre || !apellido) return;
+
+    const res = await fetch(`${BASE}/api/choferes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, apellido, telefono })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnUpdateChofer").addEventListener("click", async () => {
+    const id       = prompt("ID del chofer a actualizar:");
+    const nombre   = prompt("Nuevo nombre:");
+    const apellido = prompt("Nuevo apellido:");
+    const telefono = prompt("Nuevo teléfono:");
+    if (!id || !nombre || !apellido) return;
+
+    const res = await fetch(`${BASE}/api/choferes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, apellido, telefono, activo: true })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+document.getElementById("btnDeleteChofer").addEventListener("click", async () => {
+    const id = prompt("ID del chofer a desactivar:");
+    if (!id) return;
+    const confirmar = confirm(`¿Desactivar chofer ${id}?`);
+    if (!confirmar) return;
+
+    const res = await fetch(`${BASE}/api/choferes/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+
+
+
+document.getElementById("btnEnviarNotificacion").addEventListener("click", async () => {
+    const tipo    = prompt("Tipo (ej: salida, retraso, llegada):");
+    const mensaje = prompt("Mensaje (ej: El bus salió de Empalme):");
+    if (!tipo || !mensaje) return;
+
+    const res = await fetch(`${BASE}/api/notificaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, mensaje, id_recorrido: 1 })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+});
+
+
+

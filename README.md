@@ -7,8 +7,8 @@ Incluye backend API REST, panel web administrativo y aplicación móvil Android.
 
 ## Estructura
 
-- `backend/` → API REST en Python/Flask con JWT, MySQL, Socket.io y WebSocket protegido.
-- `web-admin/` → Panel administrador web (login, registro, mapa, gestión de rutas).
+- `backend/` → API REST en Python/Flask con JWT, MySQL, Socket.io, WebSocket protegido, RabbitMQ y Kafka.
+- `web-admin/` → Panel administrador web (login, registro, mapa, gestión de rutas, notificaciones).
 
 ---
 
@@ -18,12 +18,25 @@ Incluye backend API REST, panel web administrativo y aplicación móvil Android.
 - **Panel administrador** con mapa de Live GPS de autobuses.
 - **API REST** para gestionar unidades, rutas y posiciones GPS.
 - **WebSocket** para recibir posiciones en tiempo real protegidas por token.
+ **Mensajería** con RabbitMQ (notificaciones) y Apache Kafka (stream GPS).
 
 ---
 
 ## Levantar proyecto
 
-1. **Backend**  
+1. **Servicios de mensajería (Docker)**
+```bash
+# Desde la raíz del proyecto
+docker-compose up -d
+```
+Esto levanta:
+- RabbitMQ → `http://localhost:15672` (usuario: `admin`, contraseña: `admin123`)
+- Apache Kafka → `localhost:9092`
+- Zookeeper → `localhost:2181`
+
+*NOTA: Usa `docker-compose down` para apagar los servicios cuando termines de trabajar en el proyecto*
+
+2. **Backend**  
    ```bash
    cd backend
    source venv/bin/activate        # o venv\Scripts\activate en Windows
@@ -32,7 +45,7 @@ Incluye backend API REST, panel web administrativo y aplicación móvil Android.
    ```
    Servidor: `http://127.0.0.1:5500`
 
-2. **Web Admin**  
+3. **Web Admin**  
    ```bash
    cd web-admin
    python -m http.server 8000
@@ -69,6 +82,31 @@ Incluye backend API REST, panel web administrativo y aplicación móvil Android.
 
 ---
 
+### Rutas y paradas
+- `GET /api/rutas` → Lista de rutas.
+- `POST /api/rutas` → Crear ruta.
+- `GET /api/rutas/<id>` → Detalle de ruta.
+- `PUT /api/rutas/<id>` → Actualizar ruta.
+- `DELETE /api/rutas/<id>` → Eliminar ruta.
+- `GET /api/rutas/<id>/paradas` → Paradas de una ruta.
+- `POST /api/rutas/<id>/paradas` → Agregar parada a una ruta.
+
+---
+
+### Choferes
+- `GET /api/choferes` → Lista de choferes.
+- `POST /api/choferes` → Crear chofer.
+- `GET /api/choferes/<id>` → Detalle de chofer.
+- `PUT /api/choferes/<id>` → Actualizar chofer.
+- `DELETE /api/choferes/<id>` → Desactivar chofer.
+
+---
+
+### Notificaciones
+- `POST /api/notificaciones` → Enviar notificación manual vía RabbitMQ.
+
+---
+
 ## Web Admin (pantallas)
 
 - `login.html` → Pantalla de inicio de sesión (utiliza token JWT para acceder al panel).
@@ -81,4 +119,5 @@ Incluye backend API REST, panel web administrativo y aplicación móvil Android.
 
 - Backend: Python, Flask, PyJWT, MySQL, Socket.io.
 - Frontend web: HTML5, CSS3, JavaScript, Leaflet (mapas).
+- Mensajería: RabbitMQ, Apache Kafka. 
 - (Proximamente) Aplicación móvil: Android Studio (Kotlin/Java).
