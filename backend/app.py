@@ -164,10 +164,10 @@ def get_recorrido_activo(id_unidad):
 @app.route("/api/gps/position", methods=["POST"])
 def ingest_position():
     data = request.json
-    print("DATA RECIBIDA:", data) #debug
+    print("DATA RECIBIDA:", data)
     if not data or data.get("id_recorrido") is None or data.get("lat") is None or data.get("lng") is None:
         return jsonify({"error": "no data"}), 400
-    
+
     Location.save(data.get("id_recorrido"), data.get("lat"), data.get("lng"))
 
     publish_gps_kafka(
@@ -176,6 +176,16 @@ def ingest_position():
         bus_id="POT-01",
         id_recorrido=data.get("id_recorrido")
     )
+
+
+    gps_data = {
+        "lat": data.get("lat"),
+        "lng": data.get("lng"),
+        "id_recorrido": data.get("id_recorrido"),
+        "timestamp": data.get("timestamp", 0)  
+    }
+
+    socketio.emit('gps_live', gps_data)
 
     return jsonify({"msg": "posición guardada"}), 201
 

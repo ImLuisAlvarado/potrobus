@@ -6,7 +6,7 @@ const btnLatest = document.getElementById("btnLatest");
 const btnHistory = document.getElementById("btnHistory");
 const btnSendGps = document.getElementById("btnSendGps");
 const btnMap = document.getElementById("btnMap");
-const BASE = "http://127.0.0.1:5500";
+const BASE = "su ip chavalones";
 
 // Variables globales para el mapa
 window.map = null;
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 const myToken = localStorage.getItem('access_token') || "";
 
 if (!window.socket) {
-    window.socket = io('http://127.0.0.1:5500', {
+    window.socket = io(BASE, {
         transports: ['websocket'],
         query: {token: myToken},
         upgrade: false
@@ -191,6 +191,7 @@ document.getElementById("btnEstadoBus").addEventListener("click", async () => {
     output.textContent = JSON.stringify(data, null, 2);
 });
 
+/*
 setInterval(async () => {
     try {
         // Consultamos la última posición real guardada en BD
@@ -212,7 +213,8 @@ setInterval(async () => {
     } catch (e) {
         console.warn("Esperando datos de la base de datos...");
     }
-}, 5000); 
+}, 5000);
+*/ 
 
 
 
