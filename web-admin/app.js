@@ -1,396 +1,340 @@
-console.log('Leaflet disponible:', typeof L !== 'undefined');
-
-const btnCheck = document.getElementById("btnCheck");
-const output = document.getElementById("output");
-const btnLatest = document.getElementById("btnLatest");
-const btnHistory = document.getElementById("btnHistory");
-const btnSendGps = document.getElementById("btnSendGps");
-const btnMap = document.getElementById("btnMap");
-const BASE = "su ip chavalones";
-
-// Variables globales para el mapa
-window.map = null;
-window.marker = null;
-
-// Inicialización única al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
-    const mapElement = document.getElementById('map');
-    
-    if (mapElement) {
-        window.map = L.map('map').setView([40.7825, -73.9661], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
-        window.marker = L.marker([40.7825, -73.9661]).addTo(window.map).bindPopup('Esperando GPS...');
-        console.log('Mapa inicializado correctamente');
-    } else {
-        console.error('Error: div #map no encontrado');
-    }
-});
-
-// Socket.io
+const BASE = "http://10.232.36.55:5500";
 const myToken = localStorage.getItem('access_token') || "";
 
-if (!window.socket) {
-    window.socket = io(BASE, {
-        transports: ['websocket'],
-        query: {token: myToken},
-        upgrade: false
-    });
-}
-const socket = window.socket;
+// Variables globales para el mapa y capas
+window.map = null;
+window.marker = null;
+window.paradaMarkers = [];
+window.rutaLine = null;
 
-socket.on('connect', () => {
-    console.log('Socket.io CONECTADO');
-    output.textContent += '\nSocket.io listo (GPS cada 5s)';
-});
+/**
+ * Funcionalidades para pantallas modales que servirán para CRUD
+ * @param {"id del modal a abrir"} modalId 
+ * @param {"información que ocupa los campos"} data 
+ * @returns 
+ */
 
-socket.on('connect_error', (err) => {
-    console.error('Error de conexión:', err.message);
-});
+function abrirModal(modalId, data = null) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.style.display = 'block';
 
-socket.on('gps_live', (data) => {
-    console.log('GPS RECIBIDO:', data);
-    
-    // Validar existencia de datos
-    if (!data || data.lat === undefined) return;
-
-    if (window.map) {
-        if (window.marker) {
-            window.marker.setLatLng([data.lat, data.lng]);
-            window.marker.setPopupContent(`${data.bus_id || 'BUS'} | ${data.velocidad || 0} km/h`);
-        } else {
-            window.marker = L.marker([data.lat, data.lng]).addTo(window.map);
-        }
-        window.map.panTo([data.lat, data.lng]);
+    if (data) {
+        if (modalId === 'modal-chofer') llenarCamposChofer(data);
+        else if (modalId === 'modal-bus') llenarCamposBus(data);
+    } else {
+        const form = modal.querySelector('form');
+        if (form) form.reset();
+        resetearTitulos(modalId);
     }
+}
+
+/**
+ * Funcionalidad para cerrar las pantallas modales
+ * @param {"id del modal a cerrar"} modalId 
+ */
+function cerrarModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Carga del mapa con ubicación inicial en CITEV
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Inicializar Mapa
+    const mapElement = document.getElementById('map');
+    if (mapElement && typeof L !== 'undefined') {
+        window.map = L.map('map').setView([27.9675, -110.9185], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(window.map);
+        
+        window.marker = L.marker([27.9675, -110.9185]).addTo(window.map)
+            .bindPopup('Esperando señal GPS...');
+    }
+
+    // 2. Personalización del Header
+    const adminName = document.getElementById("admin-name");
+    const nombreGuardado = localStorage.getItem("user_fullname"); 
+    if (nombreGuardado && adminName) adminName.textContent = nombreGuardado;
+
+    // 3. Carga inicial
+    actualizarDashboardInicio();
+
+    // 4. Navegación de Tabs
+    const navItems = document.querySelectorAll('.nav-links li');
+    const views = document.querySelectorAll('.content-view');
+
+    /**
+     * Esta es la navegación de la barra lateral
+     */
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const viewName = item.innerText.trim().toLowerCase();
+            if (viewName === 'choferes') cargarChoferes();
+            if (viewName === 'camiones') cargarCamiones();
+            if (viewName === 'inicio') actualizarDashboardInicio();
+
+            navItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            const targetId = `view-${viewName}`;
+            views.forEach(view => view.style.display = (view.id === targetId) ? 'block' : 'none');
+        });
+    });
+
+    // 5. Configurar Botones
+    configurarBotonesAccion();
 });
 
-socket.on('notificacion', (data) => {
-    console.log('NOTIFICACION:', data);
-    const color = data.tipo === 'retraso' ? '#ff4444' 
-                : data.tipo === 'salida'  ? '#007bff' 
-                : '#28a745';
-    
-    const div = document.createElement('div');
-    div.style.cssText = `
-        padding: 10px; margin: 5px 0; border-radius: 5px;
-        background: ${color}; color: white; font-weight: bold;
-    `;
-    div.textContent = `${new Date().toLocaleTimeString('es-MX')} — ${data.mensaje}`;
-    
-    document.getElementById('notificaciones-panel').prepend(div);
-});
+// --- LÓGICA DE DASHBOARD ---
 
-
-// Event Listeners (Resto de botones)
-btnCheck.addEventListener("click", async () => {
-  try {
-    const res = await fetch(`${BASE}/api/health`);
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-  } catch (err) { output.textContent = "Error: " + err; }
-});
-
-btnLatest.addEventListener("click", async () => {
-  const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
-  const data = await res.json();
-  output.textContent = JSON.stringify(data, null, 2);
-});
-
-btnHistory.addEventListener("click", async () => {
-  const res = await fetch(`${BASE}/api/buses/1/positions`);
-  const data = await res.json();
-  output.textContent = JSON.stringify(data, null, 2);
-});
-
-btnSendGps.addEventListener("click", async () => {
-  const res = await fetch(`${BASE}/api/gps/position`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_recorrido: 2, lat: 27.9675, lng: -110.9185 })
-  });
-  const data = await res.json();
-  output.textContent = JSON.stringify(data, null, 2);
-});
-
-btnMap.addEventListener("click", async () => {
-    if (!window.map) return;
+/**
+ * Esta función corresponde al Dashboard de las paradas y la información de rutas, 
+ * se actualiza con la información real obtenida desde BD
+ */
+async function actualizarDashboardInicio() {
     try {
-        const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
-        const pos = await res.json();
-        if (pos.lat && pos.lng) {
-            window.marker.setLatLng([pos.lat, pos.lng]);
-            window.map.setView([pos.lat, pos.lng], 16);
-            output.textContent = `📍 Actualizado: ${pos.lat}, ${pos.lng}`;
+        const resStops = await fetch(`${BASE}/api/rutas/1/paradas`); 
+        const paradas = await resStops.json();
+        const container = document.getElementById("stops-list");
+        if (container && Array.isArray(paradas)) {
+            container.innerHTML = paradas.map(p => `<div class="stop-item">📍 ${p.nombre}</div>`).join('');
         }
-    } catch (e) { output.textContent = "Error mapa: " + e; }
-});
 
+        const resLive = await fetch(`${BASE}/api/buses/1/positions/latest`);
+        const data = await resLive.json();
+        if (data && document.getElementById("live-driver")) {
+            document.getElementById("live-driver").textContent = data.chofer_nombre || "En servicio";
+            document.getElementById("live-bus").textContent = data.modelo_bus || "Unidad Activa";
+            document.getElementById("live-plate").textContent = data.placa || "---";
+        }
+    } catch (err) { console.warn("Dashboard Error:", err); }
+}
 
+// --- CRUD TABLAS ---
 
-document.getElementById("btnListBuses").addEventListener("click", async () => {
-    const res = await fetch(`${BASE}/api/buses`);
+/**
+ * Función para gestión de los choferes, se obtiene, se puede editar, eliminar, etc.
+ * @returns 
+ */
+async function cargarChoferes() {
+    const tbody = document.getElementById("tbody-choferes");
+    if (!tbody) return;
+    try {
+        const res = await fetch(`${BASE}/api/choferes`);
+        const choferes = await res.json();
+        tbody.innerHTML = choferes.map(chofer => `
+            <tr>
+                <td><img src="imagenes/chofericono.png" style="width: 35px;"></td>
+                <td>${chofer.id.toString().padStart(3, '0')}</td>
+                <td>${chofer.nombre} ${chofer.apellido}</td>
+                <td>${chofer.genero || 'Hombre'}</td>
+                <td>${chofer.telefono || 'N/A'}</td>
+                <td>${chofer.unidad_asignada || '---'}</td>
+                <td><span class="status-badge ${chofer.activo ? 'status-active' : 'status-inactive'}">${chofer.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td class="actions">
+                    <button onclick="prepararUpdateChofer(${chofer.id})" class="btn-edit">✎</button>
+                    <button onclick="confirmarDeleteChofer(${chofer.id})" class="btn-delete">🗑</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) { console.error(err); }
+}
+
+/**
+ * Función para gestión de los camiones, se obtiene, se puede editar, eliminar, etc
+ * @returns 
+ */
+async function cargarCamiones() {
+    const tbody = document.getElementById("tbody-camiones");
+    if (!tbody) return;
+    try {
+        const res = await fetch(`${BASE}/api/buses`);
+        const buses = await res.json();
+        //se usa un emoji a falta de iconos😭
+        tbody.innerHTML = buses.map(bus => `
+            <tr>
+                <td>🚌</td>
+                <td>${bus.numero_economico || bus.id.toString().padStart(3, '0')}</td>
+                <td>${bus.placa}</td>
+                <td>${bus.modelo || 'N/A'}</td>
+                <td>${bus.asignaciones || '---'}</td>
+                <td><span class="status-badge ${bus.activo ? 'status-active' : 'status-inactive'}">${bus.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td class="actions">
+                    <button onclick="prepararUpdateBus(${bus.id})" class="btn-edit">✎</button>
+                    <button onclick="confirmarDeleteBus(${bus.id})" class="btn-delete">🗑</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) { console.error(err); }
+}
+
+// --- MANEJADORES DE EVENTOS ---
+
+/**
+ * Función para el manejo de los diversos botones en el index.html
+ */
+function configurarBotonesAccion() {
+    // BOTONES "AÑADIR" -> ABREN MODALES VACÍOS
+    document.getElementById("btnCreateChofer")?.addEventListener("click", () => abrirModal('modal-chofer'));
+    document.getElementById("btnCreateBus")?.addEventListener("click", () => abrirModal('modal-bus'));
+
+    // SUBMITS DE FORMULARIOS
+    document.getElementById("form-chofer")?.addEventListener("submit", manejarSubmitChofer);
+    document.getElementById("form-bus")?.addEventListener("submit", manejarSubmitBus);
+
+    // RUTA (PROMPT TEMPORAL)
+    document.getElementById("btnMostrarRuta")?.addEventListener("click", () => {
+        const id = prompt("ID de la ruta a visualizar:");
+        if (id) mostrarRutaEnMapa(id);
+    });
+
+    window.onclick = (e) => {
+        if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
+    };
+}
+
+/**
+ * La función para guardar la información del modal Chofer
+ * @param {*} e 
+ */
+async function manejarSubmitChofer(e) {
+    e.preventDefault();
+    const id = document.getElementById('chofer-id').value;
+    const payload = {
+        nombre: document.getElementById('chofer-nombre').value,
+        apellido: document.getElementById('chofer-apellido').value,
+        telefono: document.getElementById('chofer-telefono').value,
+        activo: true
+    };
+    const res = await fetch(id ? `${BASE}/api/choferes/${id}` : `${BASE}/api/choferes`, {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) { cerrarModal('modal-chofer'); cargarChoferes(); }
+}
+
+/**
+ * La función para guardar la información del modal Bus
+ * @param {*} e 
+ */
+async function manejarSubmitBus(e) {
+    e.preventDefault();
+    const id = document.getElementById('bus-id').value;
+    const payload = {
+        numero_economico: document.getElementById('bus-numero').value,
+        placa: document.getElementById('bus-placa').value,
+        modelo: document.getElementById('bus-modelo').value,
+        activo: true
+    };
+    const res = await fetch(id ? `${BASE}/api/buses/${id}` : `${BASE}/api/buses`, {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) { cerrarModal('modal-bus'); cargarCamiones(); }
+}
+
+// --- FUNCIONES DE APOYO ---
+
+/**
+ * Funciones para poblar las diversas tablas del index.html -> Chofer
+ * @param {*} data 
+ */
+function llenarCamposChofer(data) {
+    document.getElementById('modal-chofer-title').textContent = "Editar Chofer";
+    document.getElementById('chofer-id').value = data.id;
+    document.getElementById('chofer-nombre').value = data.nombre;
+    document.getElementById('chofer-apellido').value = data.apellido;
+    document.getElementById('chofer-telefono').value = data.telefono || "";
+}
+
+/**
+ * Funciones para poblar las diversas tablas del index.html -> Autobus
+ * @param {*} data 
+ */
+function llenarCamposBus(data) {
+    document.getElementById('modal-bus-title').textContent = "Editar Unidad";
+    document.getElementById('bus-id').value = data.id;
+    document.getElementById('bus-numero').value = data.numero_economico;
+    document.getElementById('bus-placa').value = data.placa;
+    document.getElementById('bus-modelo').value = data.modelo || "";
+}
+
+function resetearTitulos(modalId) {
+    if (modalId === 'modal-chofer') {
+        document.getElementById('modal-chofer-title').textContent = "Nuevo Chofer";
+        document.getElementById('chofer-id').value = "";
+    } else {
+        document.getElementById('modal-bus-title').textContent = "Nueva Unidad";
+        document.getElementById('bus-id').value = "";
+    }
+}
+
+// FUNCIONES GLOBALES (LLAMADAS DESDE ONCLICK)
+window.prepararUpdateChofer = async (id) => {
+    const res = await fetch(`${BASE}/api/choferes/${id}`);
     const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
+    abrirModal('modal-chofer', data);
+};
 
-document.getElementById("btnGetBus").addEventListener("click", async () => {
-    const id = prompt("ID de la unidad:");
-    if (!id) return;
+window.prepararUpdateBus = async (id) => {
     const res = await fetch(`${BASE}/api/buses/${id}`);
     const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
+    abrirModal('modal-bus', data);
+};
 
-document.getElementById("btnCreateBus").addEventListener("click", async () => {
-    const numero = prompt("Número económico (ej: POT-02):");
-    const modelo = prompt("Modelo (ej: Vento 2023):");
-    const placa  = prompt("Placa (ej: SON-002):");
-    if (!numero || !placa) return;
-
-    const res = await fetch(`${BASE}/api/buses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero_economico: numero, modelo, placa })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnUpdateBus").addEventListener("click", async () => {
-    const id     = prompt("ID de la unidad a actualizar:");
-    const numero = prompt("Nuevo número económico:");
-    const modelo = prompt("Nuevo modelo:");
-    const placa  = prompt("Nueva placa:");
-    if (!id || !numero || !placa) return;
-
-    const res = await fetch(`${BASE}/api/buses/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero_economico: numero, modelo, placa, activo: true })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnDeleteBus").addEventListener("click", async () => {
-    const id = prompt("ID de la unidad a desactivar:");
-    if (!id) return;
-    const confirmar = confirm(`¿Desactivar unidad ${id}?`);
-    if (!confirmar) return;
-
-    const res = await fetch(`${BASE}/api/buses/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnEstadoBus").addEventListener("click", async () => {
-    const id = prompt("ID de la unidad:");
-    if (!id) return;
-    const res = await fetch(`${BASE}/api/buses/${id}/estado`);
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-/*
-setInterval(async () => {
-    try {
-        // Consultamos la última posición real guardada en BD
-        const res = await fetch(`${BASE}/api/buses/1/positions/latest`);
-        const data = await res.json();
-        
-        if (data && data.lat && data.lng) {
-            console.log('Última ubicación de BD:', data);
-            
-            // Actualizar marcador
-            if (window.marker) {
-                window.marker.setLatLng([data.lat, data.lng]);
-            } else {
-                window.marker = L.marker([data.lat, data.lng]).addTo(window.map);
-            }
-            // Mover el mapa a la nueva posición
-            window.map.panTo([data.lat, data.lng]);
-        }
-    } catch (e) {
-        console.warn("Esperando datos de la base de datos...");
+window.confirmarDeleteChofer = async (id) => {
+    if (confirm("¿Desactivar este chofer?")) {
+        await fetch(`${BASE}/api/choferes/${id}`, { method: "DELETE" });
+        cargarChoferes();
     }
-}, 5000);
-*/ 
+};
 
+window.confirmarDeleteBus = async (id) => {
+    if (confirm("¿Desactivar este camión?")) {
+        await fetch(`${BASE}/api/buses/${id}`, { method: "DELETE" });
+        cargarCamiones();
+    }
+};
 
-
-
-
-document.getElementById("btnListRutas").addEventListener("click", async () => {
-    const res = await fetch(`${BASE}/api/rutas`);
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnCreateRuta").addEventListener("click", async () => {
-    const nombre  = prompt("Nombre de la ruta (ej: Ruta Empalme-Guaymas):");
-    const origen  = prompt("Origen (ej: Empalme):");
-    const destino = prompt("Destino (ej: ITSON Guaymas):");
-    const desc    = prompt("Descripción (opcional):");
-    if (!nombre || !origen || !destino) return;
-
-    const res = await fetch(`${BASE}/api/rutas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, descripcion: desc, origen, destino })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnGetParadas").addEventListener("click", async () => {
-    const id = prompt("ID de la ruta:");
-    if (!id) return;
-    const res = await fetch(`${BASE}/api/rutas/${id}/paradas`);
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnAddParada").addEventListener("click", async () => {
-    const id_ruta = prompt("ID de la ruta:");
-    const nombre  = prompt("Nombre de la parada (ej: Campus ITSON):");
-    const lat     = prompt("Latitud (ej: 27.9675):");
-    const lng     = prompt("Longitud (ej: -110.9185):");
-    const orden   = prompt("Orden en la ruta (ej: 1):");
-    if (!id_ruta || !nombre) return;
-
-    const res = await fetch(`${BASE}/api/rutas/${id_ruta}/paradas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, latitud: lat, longitud: lng, orden: parseInt(orden) })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-
-
-document.getElementById("btnMostrarRuta").addEventListener("click", async () => {
-    // Limpiar marcadores de paradas anteriores
-    if (window.paradaMarkers) {
+async function mostrarRutaEnMapa(id) {
+    if (window.paradaMarkers.length > 0) {
         window.paradaMarkers.forEach(m => window.map.removeLayer(m));
+        window.paradaMarkers = [];
     }
-    if (window.rutaLine) {
-        window.map.removeLayer(window.rutaLine);
-    }
-    window.paradaMarkers = [];
+    if (window.rutaLine) window.map.removeLayer(window.rutaLine);
 
-    const id = prompt("ID de la ruta:");
-    if (!id) return;
+    try {
+        const res = await fetch(`${BASE}/api/rutas/${id}/paradas`);
+        const paradas = await res.json();
+        if (!paradas.length) return alert("Ruta sin paradas");
 
-    const res = await fetch(`${BASE}/api/rutas/${id}/paradas`);
-    const paradas = await res.json();
+        const coordenadas = [];
+        paradas.forEach(p => {
+            const pos = [parseFloat(p.latitud), parseFloat(p.longitud)];
+            coordenadas.push(pos);
+            const m = L.circleMarker(pos, { radius: 6, color: 'red' }).addTo(window.map).bindPopup(p.nombre);
+            window.paradaMarkers.push(m);
+        });
 
-    if (!paradas.length) {
-        output.textContent = "No hay paradas en esta ruta.";
-        return;
-    }
+        window.rutaLine = L.polyline(coordenadas, { color: '#007bff', weight: 4 }).addTo(window.map);
+        window.map.fitBounds(window.rutaLine.getBounds());
+    } catch (e) { console.error(e); }
+}
 
-    // Icono personalizado para paradas
-    const iconoParada = L.divIcon({
-        className: '',
-        html: '🛑',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+// SOCKETS
+if (typeof io !== 'undefined') {
+    window.socket = io(BASE, { transports: ['websocket'], query: { token: myToken } });
+    window.socket.on('gps_live', (data) => {
+        if (!data || data.lat === undefined) return;
+        if (window.map && window.marker) {
+            const newPos = [data.lat, data.lng];
+            window.marker.setLatLng(newPos);
+            window.map.panTo(newPos);
+        }
     });
-
-    const coordenadas = [];
-
-    paradas.filter(p => p.latitud && p.longitud).forEach(parada => {
-        const lat = parseFloat(parada.latitud);
-        const lng = parseFloat(parada.longitud);
-        coordenadas.push([lat, lng]);
-
-        const marker = L.marker([lat, lng], { icon: iconoParada })
-            .addTo(window.map)
-            .bindPopup(`<b>Parada ${parada.orden}</b><br>${parada.nombre}`);
-
-        window.paradaMarkers.push(marker);
-    });
-
-    // Línea conectando las paradas
-    window.rutaLine = L.polyline(coordenadas, {
-        color: '#007bff',
-        weight: 4,
-        dashArray: '10, 5'  // línea punteada
-    }).addTo(window.map);
-
-    // Centrar el mapa en la ruta
-    window.map.fitBounds(window.rutaLine.getBounds(), { padding: [30, 30] });
-
-    output.textContent = `Ruta mostrada con ${paradas.length} paradas`;
-});
-
-
-
-document.getElementById("btnListChoferes").addEventListener("click", async () => {
-    const res = await fetch(`${BASE}/api/choferes`);
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnCreateChofer").addEventListener("click", async () => {
-    const nombre   = prompt("Nombre:");
-    const apellido = prompt("Apellido:");
-    const telefono = prompt("Teléfono:");
-    if (!nombre || !apellido) return;
-
-    const res = await fetch(`${BASE}/api/choferes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, apellido, telefono })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnUpdateChofer").addEventListener("click", async () => {
-    const id       = prompt("ID del chofer a actualizar:");
-    const nombre   = prompt("Nuevo nombre:");
-    const apellido = prompt("Nuevo apellido:");
-    const telefono = prompt("Nuevo teléfono:");
-    if (!id || !nombre || !apellido) return;
-
-    const res = await fetch(`${BASE}/api/choferes/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, apellido, telefono, activo: true })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-document.getElementById("btnDeleteChofer").addEventListener("click", async () => {
-    const id = prompt("ID del chofer a desactivar:");
-    if (!id) return;
-    const confirmar = confirm(`¿Desactivar chofer ${id}?`);
-    if (!confirmar) return;
-
-    const res = await fetch(`${BASE}/api/choferes/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-
-
-
-document.getElementById("btnEnviarNotificacion").addEventListener("click", async () => {
-    const tipo    = prompt("Tipo (ej: salida, retraso, llegada):");
-    const mensaje = prompt("Mensaje (ej: El bus salió de Empalme):");
-    if (!tipo || !mensaje) return;
-
-    const res = await fetch(`${BASE}/api/notificaciones`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo, mensaje, id_recorrido: 1 })
-    });
-    const data = await res.json();
-    output.textContent = JSON.stringify(data, null, 2);
-});
-
-
-
+}

@@ -1,106 +1,196 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PotroBus - Admin</title>
-    
-    <script>
-        if (!localStorage.getItem('access_token')) {
-            window.location.href = 'login.html';
-        }
-    </script>
-    
-    <script>
-    fetch('http://localhost:5500/api/health').then(r=>r.json()).then(data=> {
-        document.body.innerHTML += `<h3>Backend: ${data.status}</h3>`;
-    });
-    </script>
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          onerror="this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'" />
-    <link rel="stylesheet" href="styles.css">
+    <title>PotroBus - Dashboard Admin</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="index.css">
 </head>
 <body>
-    <h1>Panel Administrador PotroBus</h1>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnCheck">Health</button>
-        <button id="btnLatest">Última posición</button>
-        <button id="btnHistory">Historial</button>
-        <button id="btnSendGps">Enviar GPS</button>
-        <button id="btnMap">Mapa</button>
-    </div>
+    <!-- Encabezado Superior -->
+    <header class="main-header">
+        <img src="imagenes/PotroBusLogoAlt.png" alt="Potrobus" class="header-logo">
+        <div class="user-profile">
+            <img src="imagenes/User-avatar.svg.png" alt="Admin" class="avatar">
+            <div class="user-info">
+                <span id="admin-name">Cargando...</span>
+                <small id="admin-role">Administrador</small>
+            </div>
+        </div>
+    </header>
 
-    <h2>Gestión de Unidades</h2>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnListBuses">Ver todos los buses</button>
-        <button id="btnGetBus">Buscar bus por ID</button>
-        <button id="btnCreateBus">Crear bus</button>
-        <button id="btnUpdateBus">Actualizar bus</button>
-        <button id="btnDeleteBus">Desactivar bus</button>
-        <button id="btnEstadoBus">Estado del bus</button>
-    </div>
-
-    <h2>Gestión de Rutas</h2>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnListRutas">Ver todas las rutas</button>
-        <button id="btnCreateRuta">Crear ruta</button>
-        <button id="btnGetParadas">Ver paradas de ruta</button>
-        <button id="btnAddParada">Agregar parada</button>
-        <button id="btnMostrarRuta">Ver ruta en mapa</button>
-    </div>
-
-    <h2>Gestión de Choferes</h2>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnListChoferes">Ver todos los choferes</button>
-        <button id="btnCreateChofer">Crear chofer</button>
-        <button id="btnUpdateChofer">Actualizar chofer</button>
-        <button id="btnDeleteChofer">Desactivar chofer</button>
-    </div>
-
-    <h2>Mensajería</h2>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnEnviarNotificacion">Enviar notificación</button>
-    </div>
-
-    <h2>Notificaciones en tiempo real</h2>
-    <div id="notificaciones-panel" style="
-        max-height: 200px; 
-        overflow-y: auto; 
-        border: 1px solid #ccc; 
-        padding: 10px;
-        border-radius: 8px;
-        background: #f9f9f9;
-    ">
-        <p style="color: #999">Esperando notificaciones...</p>
-    </div>
+    <div class="dashboard-wrapper">
+        <!-- Barra Lateral -->
+        <nav class="sidebar">
+            <ul class="nav-links">
+                <li class="active"><i class="icon-home"></i> Inicio</li>
+                <li><i class="icon-driver"></i> Choferes</li>
+                <li><i class="icon-bus"></i> Camiones</li>
+                <li><i class="icon-route"></i> Rutas</li>
+            </ul>
+            <button class="btn-logout" onclick="localStorage.clear(); location.href='login.html'">
+                Cerrar sesión
+            </button>
+        </nav>
+        
+        
+        <main class="content">
     
-    <pre id="output">Listo para probar APIs...</pre>
+            <!-- VISTA: INICIO (Mapa) -->
     
+            <div id="view-inicio" class="content-view">
+            <header class="content-header">
+                <h2>Seguimiento en tiempo real</h2>
+                <span class="status-online">En línea</span>
+            </header>
 
-    <div id="map" style="height: 500px; width: 100%; margin-top: 20px; border: 2px solid #007bff;"></div>
+            <div class="main-grid">
+                <section class="map-section">
+                    <div id="map"></div>
+                    <div class="map-details">
+                        <div class="detail-card"><p>Chofer activo</p><strong id="live-driver">---</strong></div>
+                        <div class="detail-card"><p>Turno</p><strong id="live-shift">---</strong></div>
+                        <div class="detail-card"><p>Camión</p><strong id="live-bus">---</strong></div>
+                        <div class="detail-card"><p>Placas</p><strong id="live-plate">---</strong></div>
+                    </div>
+                </section>
 
+                <aside class="stops-panel">
+                    <h3>Paradas</h3>
+                    <div id="stops-list" class="stops-list">
+                    <!-- Se llenará dinámicamente -->
+                    </div>
+                </aside>
+            </div>
+        </div>
 
+        <!-- VISTA: CHOFERES -->
+        <div id="view-choferes" class="content-view" style="display: none;">
+        <div class="view-header">
+            <h2>Choferes</h2>
+            <button id="btnCreateChofer" class="btn-add">+ Añadir</button>
+        </div>
 
+        <div class="table-container">
+            <table id="tabla-choferes">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>No. Empleado</th>
+                        <th>Nombre</th>
+                        <th>Género</th>
+                        <th>Teléfono</th>
+                        <th>Unidad asignada</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-choferes">
+                    <!-- Se llena dinamicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 
+        <!-- VISTA: CAMIONES -->
+        <div id="view-camiones" class="content-view" style="display: none;">
+        <div class="view-header">
+            <h2>Camiones</h2>
+            <button id="btnCreateBus" class="btn-add">+ Añadir</button>
+        </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-            onerror="this.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'"></script>
-    
+        <div class="table-container">
+            <table id="tabla-camiones">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>ID / Nombre</th>
+                        <th>Placa</th>
+                        <th>Modelo</th>
+                        <th>Asignaciones</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-camiones">
+                    <!-- Se llena dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    <script>
-        window.addEventListener('load', () => {
-            if (typeof L === 'undefined') {
-                document.getElementById('output').textContent = 'Leaflet FALLÓ carga. Revisa red.';
-                console.error('Leaflet NO disponible');
-            } else {
-                console.log('Leaflet cargado correctamente');
-            }
-        });
-    </script>
+        <!-- VISTA: RUTAS -->
+        <div id="view-rutas" class="content-view" style="display: none;">
+            <header class="content-header"><h2>Gestión de Rutas</h2></header>
+            <div class="admin-actions-grid">
+                <!-- Mueve aquí tus botones de rutas -->
+                <button id="btnListRutas">Ver todas las rutas</button>
+            </div>
+        </div>
+    </main>
+        </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
-    
-    <script src="app.js"></script>
-</body>
-</html>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="app.js"></script>
+        
+        <!--MODAL PARA CHOFERES-->
+        <div id="modal-chofer" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-chofer-title">Gestionar Chofer</h3>
+                    <span class="close-modal" onclick="cerrarModal('modal-chofer')">&times;</span>
+                </div>
+                <form id="form-chofer">
+                    <input type="hidden" id="chofer-id"> <!-- ID oculto para saber si editamos o creamos -->
+                    <div class="form-group">
+                        <label>Nombre(s):</label>
+                        <input type="text" id="chofer-nombre" required placeholder="Ej. Juan">
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido(s):</label>
+                        <input type="text" id="chofer-apellido" required placeholder="Ej. Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono:</label>
+                        <input type="tel" id="chofer-telefono" placeholder="6221234567">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" onclick="cerrarModal('modal-chofer')">Cancelar</button>
+                        <button type="submit" class="btn-save">Guardar Chofer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- MODAL PARA UNIDADES (CAMIONES) -->
+        <div id="modal-bus" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-bus-title">Gestionar Unidad</h3>
+                    <span class="close-modal" onclick="cerrarModal('modal-bus')">&times;</span>
+                </div>
+                <form id="form-bus">
+                    <input type="hidden" id="bus-id">
+                    <div class="form-group">
+                        <label>Número Económico:</label>
+                        <input type="text" id="bus-numero" required placeholder="Ej. POT-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Placa:</label>
+                        <input type="text" id="bus-placa" required placeholder="Ej. SON-123">
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo:</label>
+                        <input type="text" id="bus-modelo" placeholder="Ej. Mercedes-Benz 2024">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" onclick="cerrarModal('modal-bus')">Cancelar</button>
+                        <button type="submit" class="btn-save">Guardar Unidad</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </body>
+    </html>
