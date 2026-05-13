@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
+MODO_SIMULACION = False # activar simulación  = True
 
 """Ruta de prueba para verificar que la conexión está 'sana'
 Devuelve un JSON con el estado del servicio."""
@@ -49,6 +50,30 @@ def login():
                  }, 200
     
     return {"message": "Credenciales inválidas"}, 401
+
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    if not data or not data.get('correo') or not data.get('password'):
+        return jsonify({"error": "faltan campos"}), 400
+    
+    result = User.create(
+        data.get('nombre', ''),
+        data.get('apellido', ''),
+        data.get('correo'),
+        data.get('password'),
+        data.get('rol', 'estudiante')
+    )
+    
+    if result["success"]:
+        return jsonify({"msg": "usuario registrado"}), 201
+    
+    elif result["error"] == "correo_duplicado":
+        return jsonify({"error": "El correo ya está registrado"}), 409
+    else:
+        return jsonify({"error": "no se pudo registrar"}), 500
 
 
 #para pruebas de autenticación con token (usen postman)
@@ -396,8 +421,8 @@ def gps_simulador_simple():
 
     while True:
         lat, lng = ruta[i % len(ruta)]
-        lat += random.uniform(-0.0005, 0.0005)
-        lng += random.uniform(-0.0005, 0.0005)
+        #lat += random.uniform(-0.0005, 0.0005)
+        #lng += random.uniform(-0.0005, 0.0005)
         data = {
             'lat': lat, 'lng': lng, 'bus_id': 'ABC-123',
             'velocidad': random.randint(40, 80),
@@ -417,8 +442,12 @@ def gps_simulador_simple():
 
         time.sleep(5)
 
-threading.Thread(target=gps_simulador_simple, daemon=True).start()
-print("THREAD GPS ACTIVO!")
+
+if MODO_SIMULACION:
+    threading.Thread(target=gps_simulador_simple, daemon=True).start()
+    print("THREAD GPS ACTIVO — MODO SIMULACIÓN")
+else:
+    print("MODO PRODUCCIÓN — esperando GPS real del conductor")
 
 start_kafka_consumer()
 start_messaging_consumers()

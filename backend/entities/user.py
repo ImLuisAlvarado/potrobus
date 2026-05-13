@@ -1,5 +1,6 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from persistence.db import get_connection
+import mysql.connector
 
 
 """Clase para el manejo de usuarios (registro, contraseñas protegidas, busqueda por correo, etc.)"""
@@ -8,8 +9,6 @@ class User:
     def create(nombre, apellido, correo, password, rol):
 
         hashed_pw = generate_password_hash(password)
-
-
         connection = None
         cursor = None
         try:
@@ -22,18 +21,22 @@ class User:
             VALUES (%s, %s, %s, %s, %s)
         """
 
-            affected = cursor.execute(query, (nombre, apellido, correo, hashed_pw, rol))
+            
+            cursor.execute(query, (nombre, apellido, correo, hashed_pw, rol))
             
             connection.commit()
             print(f"GUARDADO: {cursor.rowcount} filas afectadas")
-            return cursor.rowcount > 0  # True SOLO si insertó
+            return {"success": True}  # True SOLO si insertó
             
         except Exception as ex:
             if connection:
                 connection.rollback()
+            
+            if hasattr(ex, 'errno') and ex.errno == 1062:
+                return {"success": False, "error": "correo_duplicado"}
+          
             print(f"ERROR SQL: {ex}")
-            return False
-        
+            return {"success": False, "error": "error_db"}
         finally:
             if cursor:
                 cursor.close()

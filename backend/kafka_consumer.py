@@ -100,7 +100,7 @@ def start_kafka_consumer():
             print("Consumidor Kafka listo, esperando coordenadas...")
             for message in consumer:
                 data = message.value
-                print(f"KAFKA RECIBIÓ: {data}") #debug
+                #print(f"KAFKA RECIBIÓ: {data}") #debug
                 lat = data.get("lat")
                 lng = data.get("lng")
                 if lat and lng:

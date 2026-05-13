@@ -33,7 +33,7 @@ def publish_notificacion(tipo, mensaje, id_recorrido=None):
             body=json.dumps(data),
             properties=pika.BasicProperties(delivery_mode=2)  # mensaje persistente
         )
-        print(f"NOTIFICACION ENVIADA: {tipo} - {mensaje}")
+        #print(f"NOTIFICACION ENVIADA: {tipo} - {mensaje}")
         connection.close()
         return True
     except Exception as ex:
@@ -86,7 +86,7 @@ def publish_gps_kafka(lat, lng, bus_id, id_recorrido):
         }
         producer.send('gps-coordinates', value=data)
         producer.flush()
-        print(f"GPS KAFKA ENVIADO: {lat}, {lng}")
+        #print(f"GPS KAFKA ENVIADO: {lat}, {lng}")
         return True
     except Exception as ex:
         print(f"ERROR Kafka producer: {ex}")
@@ -95,4 +95,4 @@ def publish_gps_kafka(lat, lng, bus_id, id_recorrido):
 
 def start_messaging_consumers():
     threading.Thread(target=consume_notificaciones, daemon=True).start()
-    print("Consumidores de mensajería iniciados")
+    #print("Consumidores de mensajería iniciados")
