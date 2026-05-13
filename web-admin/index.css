@@ -158,7 +158,11 @@ body {
     cursor: pointer;
     text-align: left;
     padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
+
 .view-header {
     display: flex;
     justify-content: space-between;
