@@ -120,4 +120,4 @@ Esto levanta:
 - Backend: Python, Flask, PyJWT, MySQL, Socket.io.
 - Frontend web: HTML5, CSS3, JavaScript, Leaflet (mapas).
 - Mensajería: RabbitMQ, Apache Kafka. 
-- (Proximamente) Aplicación móvil: Android Studio (Kotlin/Java).
+- Aplicación móvil: Android Studio (Kotlin/Java): https://github.com/ImLuisAlvarado/potrobusAndroid
