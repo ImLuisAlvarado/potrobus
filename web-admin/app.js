@@ -22,6 +22,7 @@ function abrirModal(modalId, data = null) {
     if (data) {
         if (modalId === 'modal-chofer') llenarCamposChofer(data);
         else if (modalId === 'modal-bus') llenarCamposBus(data);
+        else if (modalId === 'modal-ruta') llenarCamposRuta(data);
     } else {
         const form = modal.querySelector('form');
         if (form) form.reset();
@@ -74,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const viewName = item.innerText.trim().toLowerCase();
             if (viewName === 'choferes') cargarChoferes();
             if (viewName === 'camiones') cargarCamiones();
+            if (viewName === 'rutas') cargarRutas();
             if (viewName === 'inicio') actualizarDashboardInicio();
 
             navItems.forEach(i => i.classList.remove('active'));
@@ -96,20 +98,53 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 async function actualizarDashboardInicio() {
     try {
-        const resStops = await fetch(`${BASE}/api/rutas/1/paradas`); 
-        const paradas = await resStops.json();
-        const container = document.getElementById("stops-list");
-        if (container && Array.isArray(paradas)) {
-            container.innerHTML = paradas.map(p => `<div class="stop-item">📍 ${p.nombre}</div>`).join('');
+        // Paradas de la ruta 1
+        const resStops = await fetch(`${BASE}/api/rutas/1/paradas`);
+        if (resStops.ok) {
+            const paradas = await resStops.json();
+            const container = document.getElementById("stops-list");
+            if (container && Array.isArray(paradas)) {
+                container.innerHTML = paradas.length
+                    ? paradas.map(p => `<div class="stop-item">📍 ${p.nombre}</div>`).join('')
+                    : `<div class="stop-item">Sin paradas registradas</div>`;
+            }
         }
 
-        const resLive = await fetch(`${BASE}/api/buses/1/positions/latest`);
-        const data = await resLive.json();
-        if (data && document.getElementById("live-driver")) {
-            document.getElementById("live-driver").textContent = data.chofer_nombre || "En servicio";
-            document.getElementById("live-bus").textContent = data.modelo_bus || "Unidad Activa";
-            document.getElementById("live-plate").textContent = data.placa || "---";
+        // Datos del bus 1
+        const resBus = await fetch(`${BASE}/api/buses/1`);
+        if (resBus.ok) {
+            const bus = await resBus.json();
+            if (document.getElementById("live-bus")) {
+                document.getElementById("live-bus").textContent = bus.numero_economico || "---";
+                document.getElementById("live-plate").textContent = bus.placa || "---";
+            }
         }
+
+        // Recorrido activo del bus 1
+        const resRecorrido = await fetch(`${BASE}/api/buses/1/recorrido-activo`);
+        if (resRecorrido.ok) {
+            const recorrido = await resRecorrido.json();
+            if (document.getElementById("live-shift")) {
+                document.getElementById("live-shift").textContent = recorrido.hora_inicio
+                    ? new Date(recorrido.hora_inicio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                    : "---";
+            }
+            if (document.getElementById("live-driver")) {
+                document.getElementById("live-driver").textContent = recorrido.estado === 'activo' ? "En servicio" : "---";
+            }
+        }
+
+        // Posición GPS más reciente → mover marcador en el mapa
+        const resPos = await fetch(`${BASE}/api/buses/1/positions/latest`);
+        if (resPos.ok) {
+            const pos = await resPos.json();
+            if (pos.lat && pos.lng && window.map && window.marker) {
+                const newPos = [pos.lat, pos.lng];
+                window.marker.setLatLng(newPos);
+                window.map.panTo(newPos);
+            }
+        }
+
     } catch (err) { console.warn("Dashboard Error:", err); }
 }
 
@@ -180,10 +215,13 @@ function configurarBotonesAccion() {
     // BOTONES "AÑADIR" -> ABREN MODALES VACÍOS
     document.getElementById("btnCreateChofer")?.addEventListener("click", () => abrirModal('modal-chofer'));
     document.getElementById("btnCreateBus")?.addEventListener("click", () => abrirModal('modal-bus'));
+    document.getElementById("btnCreateRuta")?.addEventListener("click", () => abrirModal('modal-ruta'));
 
     // SUBMITS DE FORMULARIOS
     document.getElementById("form-chofer")?.addEventListener("submit", manejarSubmitChofer);
     document.getElementById("form-bus")?.addEventListener("submit", manejarSubmitBus);
+    document.getElementById("form-ruta")?.addEventListener("submit", manejarSubmitRuta);
+    document.getElementById("form-parada")?.addEventListener("submit", manejarSubmitParada);
 
     // RUTA (PROMPT TEMPORAL)
     document.getElementById("btnMostrarRuta")?.addEventListener("click", () => {
@@ -206,6 +244,7 @@ async function manejarSubmitChofer(e) {
     const payload = {
         nombre: document.getElementById('chofer-nombre').value,
         apellido: document.getElementById('chofer-apellido').value,
+        genero: document.getElementById('chofer-genero').value,
         telefono: document.getElementById('chofer-telefono').value,
         activo: true
     };
@@ -249,6 +288,7 @@ function llenarCamposChofer(data) {
     document.getElementById('chofer-id').value = data.id;
     document.getElementById('chofer-nombre').value = data.nombre;
     document.getElementById('chofer-apellido').value = data.apellido;
+    document.getElementById('chofer-genero').value = data.genero || 'Hombre';
     document.getElementById('chofer-telefono').value = data.telefono || "";
 }
 
@@ -268,9 +308,12 @@ function resetearTitulos(modalId) {
     if (modalId === 'modal-chofer') {
         document.getElementById('modal-chofer-title').textContent = "Nuevo Chofer";
         document.getElementById('chofer-id').value = "";
-    } else {
+    } else if (modalId === 'modal-bus') {
         document.getElementById('modal-bus-title').textContent = "Nueva Unidad";
         document.getElementById('bus-id').value = "";
+    } else if (modalId === 'modal-ruta') {
+        document.getElementById('modal-ruta-title').textContent = "Nueva Ruta";
+        document.getElementById('ruta-id').value = "";
     }
 }
 
@@ -337,4 +380,110 @@ if (typeof io !== 'undefined') {
             window.map.panTo(newPos);
         }
     });
+}
+// --- RUTAS CRUD ---
+
+async function cargarRutas() {
+    const tbody = document.getElementById("tbody-rutas");
+    if (!tbody) return;
+    try {
+        const res = await fetch(`${BASE}/api/rutas`);
+        const rutas = await res.json();
+        tbody.innerHTML = rutas.map(ruta => `
+            <tr>
+                <td>${ruta.id.toString().padStart(3, '0')}</td>
+                <td>${ruta.nombre}</td>
+                <td class="actions">
+                    <button onclick="verParadas(${ruta.id}, '${ruta.nombre}')" class="btn-edit" title="Ver paradas">📍</button>
+                    <button onclick="prepararUpdateRuta(${ruta.id})" class="btn-edit">✎</button>
+                    <button onclick="confirmarDeleteRuta(${ruta.id})" class="btn-delete">🗑</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) { console.error(err); }
+}
+
+async function manejarSubmitRuta(e) {
+    e.preventDefault();
+    const id = document.getElementById('ruta-id').value;
+    const payload = {
+        nombre: document.getElementById('ruta-nombre').value
+    };
+    const res = await fetch(id ? `${BASE}/api/rutas/${id}` : `${BASE}/api/rutas`, {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) { cerrarModal('modal-ruta'); cargarRutas(); }
+}
+
+function llenarCamposRuta(data) {
+    document.getElementById('modal-ruta-title').textContent = "Editar Ruta";
+    document.getElementById('ruta-id').value = data.id;
+    document.getElementById('ruta-nombre').value = data.nombre;
+}
+
+window.prepararUpdateRuta = async (id) => {
+    const res = await fetch(`${BASE}/api/rutas/${id}`);
+    const data = await res.json();
+    abrirModal('modal-ruta', data);
+};
+
+window.confirmarDeleteRuta = async (id) => {
+    if (confirm("¿Eliminar esta ruta?")) {
+        await fetch(`${BASE}/api/rutas/${id}`, { method: "DELETE" });
+        cargarRutas();
+    }
+};
+
+// --- PARADAS ---
+
+window.verParadas = async (idRuta, nombreRuta) => {
+    document.getElementById('modal-paradas-title').textContent = `Paradas: ${nombreRuta}`;
+    document.getElementById('parada-id-ruta').value = idRuta;
+    document.getElementById('form-parada').reset();
+    document.getElementById('modal-paradas').style.display = 'block';
+    await cargarParadas(idRuta);
+};
+
+async function cargarParadas(idRuta) {
+    const lista = document.getElementById('lista-paradas');
+    lista.innerHTML = '<p style="color:#aaa">Cargando...</p>';
+    try {
+        const res = await fetch(`${BASE}/api/rutas/${idRuta}/paradas`);
+        const paradas = await res.json();
+        if (!paradas.length) {
+            lista.innerHTML = '<p style="color:#aaa">Sin paradas registradas</p>';
+            return;
+        }
+        lista.innerHTML = paradas.map(p => `
+            <div class="parada-item">
+                <span class="parada-orden">${p.orden}</span>
+                <span class="parada-nombre">📍 ${p.nombre}</span>
+            </div>
+        `).join('');
+    } catch (err) {
+        lista.innerHTML = '<p style="color:#e74c3c">Error al cargar paradas</p>';
+        console.error(err);
+    }
+}
+
+async function manejarSubmitParada(e) {
+    e.preventDefault();
+    const idRuta = document.getElementById('parada-id-ruta').value;
+    const payload = {
+        nombre: document.getElementById('parada-nombre').value,
+        latitud: parseFloat(document.getElementById('parada-latitud').value) || null,
+        longitud: parseFloat(document.getElementById('parada-longitud').value) || null,
+        orden: parseInt(document.getElementById('parada-orden').value) || 1
+    };
+    const res = await fetch(`${BASE}/api/rutas/${idRuta}/paradas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        document.getElementById('form-parada').reset();
+        await cargarParadas(idRuta);
+    }
 }

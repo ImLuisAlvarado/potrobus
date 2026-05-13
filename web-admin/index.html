@@ -122,10 +122,23 @@
 
         <!-- VISTA: RUTAS -->
         <div id="view-rutas" class="content-view" style="display: none;">
-            <header class="content-header"><h2>Gestión de Rutas</h2></header>
-            <div class="admin-actions-grid">
-                <!-- Mueve aquí tus botones de rutas -->
-                <button id="btnListRutas">Ver todas las rutas</button>
+            <div class="view-header">
+                <h2>Rutas</h2>
+                <button id="btnCreateRuta" class="btn-add">+ Añadir</button>
+            </div>
+            <div class="table-container">
+                <table id="tabla-rutas">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-rutas">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -150,6 +163,13 @@
                     <div class="form-group">
                         <label>Apellido(s):</label>
                         <input type="text" id="chofer-apellido" required placeholder="Ej. Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label>Género:</label>
+                        <select id="chofer-genero">
+                            <option value="Hombre">Hombre</option>
+                            <option value="Mujer">Mujer</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Teléfono:</label>
@@ -187,6 +207,68 @@
                     <div class="modal-actions">
                         <button type="button" class="btn-cancel" onclick="cerrarModal('modal-bus')">Cancelar</button>
                         <button type="submit" class="btn-save">Guardar Unidad</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL PARA RUTAS -->
+        <div id="modal-ruta" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-ruta-title">Gestionar Ruta</h3>
+                    <span class="close-modal" onclick="cerrarModal('modal-ruta')">&times;</span>
+                </div>
+                <form id="form-ruta">
+                    <input type="hidden" id="ruta-id">
+                    <div class="form-group">
+                        <label>Nombre de la ruta:</label>
+                        <input type="text" id="ruta-nombre" required placeholder="Ej. Ruta Norte">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" onclick="cerrarModal('modal-ruta')">Cancelar</button>
+                        <button type="submit" class="btn-save">Guardar Ruta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL PARADAS -->
+        <div id="modal-paradas" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-paradas-title">Paradas</h3>
+                    <span class="close-modal" onclick="cerrarModal('modal-paradas')">&times;</span>
+                </div>
+                <input type="hidden" id="parada-id-ruta">
+
+                <!-- Lista de paradas existentes -->
+                <div id="lista-paradas" class="lista-paradas"></div>
+
+                <!-- Formulario agregar parada -->
+                <form id="form-parada" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 16px;">
+                    <p style="font-weight:700; margin-bottom:12px; color:#333;">Agregar parada</p>
+                    <div class="form-group">
+                        <label>Nombre:</label>
+                        <input type="text" id="parada-nombre" required placeholder="Ej. Escuela Norte">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div class="form-group" style="flex:1">
+                            <label>Latitud:</label>
+                            <input type="number" id="parada-latitud" step="any" placeholder="27.9675">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Longitud:</label>
+                            <input type="number" id="parada-longitud" step="any" placeholder="-110.9185">
+                        </div>
+                        <div class="form-group" style="width:80px">
+                            <label>Orden:</label>
+                            <input type="number" id="parada-orden" min="1" value="1">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel" onclick="cerrarModal('modal-paradas')">Cerrar</button>
+                        <button type="submit" class="btn-save">+ Agregar</button>
                     </div>
                 </form>
             </div>
