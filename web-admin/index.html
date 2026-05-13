@@ -29,9 +29,21 @@
                 <li><img src="imagenes/autobus_sidebar.png" class="nav-icon"> Camiones</li>
                 <li><img src="imagenes/mapa_sidebar.png" class="nav-icon"> Rutas</li>
             </ul>
-            <button class="btn-logout" onclick="localStorage.clear(); location.href='login.html'">
+            <button class="btn-logout" onclick="confirmarCerrarSesion()">
                 <img src="imagenes/cerrarsesion.png" class="nav-icon"> Cerrar sesión
             </button>
+
+<!-- MODAL CERRAR SESIÓN -->
+<div id="modal-logout" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 360px; text-align: center;">
+        <h3 style="margin-bottom: 12px;">¿Cerrar sesión?</h3>
+        <p style="color: #666; margin-bottom: 24px;">¿Estás seguro que deseas salir?</p>
+        <div class="modal-actions" style="justify-content: center;">
+            <button class="btn-cancel" onclick="cerrarModal('modal-logout')">Cancelar</button>
+            <button class="btn-save" style="background-color: #e74c3c;" onclick="localStorage.clear(); location.href='login.html'">Cerrar sesión</button>
+        </div>
+    </div>
+</div>
         </nav>
         
         

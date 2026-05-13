@@ -487,3 +487,7 @@ async function manejarSubmitParada(e) {
         await cargarParadas(idRuta);
     }
 }
+
+function confirmarCerrarSesion() {
+    document.getElementById('modal-logout').style.display = 'block';
+}

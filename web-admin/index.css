@@ -366,3 +366,29 @@ td {
     object-fit: contain;
     margin-right: 10px;
 }
+
+.btn-cancel {
+    background: none;
+    border: 1px solid #ddd;
+    padding: 12px 30px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: 'Segoe UI', sans-serif;
+    transition: background 0.3s;
+}
+
+.btn-save {
+    background-color: var(--blue);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Segoe UI', sans-serif;
+    transition: background 0.3s;
+}
