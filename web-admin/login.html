@@ -51,6 +51,10 @@
             const result = await response.json();
             if (response.ok) {
                 localStorage.setItem('access_token', result.access_token);
+                if (result.user) {
+                    const fullname = `${result.user.nombre} ${result.user.apellido}`.trim();
+                    localStorage.setItem('user_fullname', fullname);
+                }
                 window.location.href = 'index.html'; // Redirige automaticamente al admin ;).
             } else {
                 alert(result.message);
