@@ -120,7 +120,6 @@
                         <th>ID / Nombre</th>
                         <th>Placa</th>
                         <th>Modelo</th>
-                        <th>Asignaciones</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -166,6 +165,22 @@
                     <div class="form-group">
                         <label>Teléfono:</label>
                         <input type="tel" id="chofer-telefono" placeholder="6221234567">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidad Asignada</label>
+                        <select id="chofer-unidad-select">
+                            <option value="">Sin asignar</option>
+                            
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Género</label>
+                        <select id="chofer-genero">
+                            <option value="" disabled selected>Selecciona una opción...</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="Otro">Otro</option>
+                        </select>
                     </div>
                     <div class="modal-actions">
                         <button type="button" class="btn-cancel" onclick="cerrarModal('modal-chofer')">Cancelar</button>

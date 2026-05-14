@@ -1,4 +1,4 @@
-const BASE = "http://10.232.36.55:5500";
+const BASE = "http://192.168.68.56:5500";
 const myToken = localStorage.getItem('access_token') || "";
 
 // Variables globales para el mapa y capas
@@ -160,21 +160,27 @@ async function cargarChoferes() {
     try {
         const res = await fetch(`${BASE}/api/choferes`);
         const choferes = await res.json();
-        tbody.innerHTML = choferes.map(chofer => `
+        tbody.innerHTML = choferes.map(chofer => {
+            const estaActivo = chofer.activo;
+            return `
             <tr>
                 <td><img src="imagenes/chofericono.png" style="width: 35px;"></td>
-                <td>${chofer.id.toString().padStart(3, '0')}</td>
+                <td>${chofer.id_chofer.toString().padStart(3, '0')}</td>
                 <td>${chofer.nombre} ${chofer.apellido}</td>
                 <td>${chofer.genero || 'Hombre'}</td>
                 <td>${chofer.telefono || 'N/A'}</td>
-                <td>${chofer.unidad_asignada || '---'}</td>
-                <td><span class="status-badge ${chofer.activo ? 'status-active' : 'status-inactive'}">${chofer.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td>${chofer.numero_economico || '---'}</td>
+                <td><span class="status-badge ${estaActivo ? 'status-active' : 'status-inactive'}">${estaActivo ? 'Activo' : 'Inactivo'}</span></td>
                 <td class="actions">
-                    <button onclick="prepararUpdateChofer(${chofer.id})" class="btn-edit">✎</button>
-                    <button onclick="confirmarDeleteChofer(${chofer.id})" class="btn-delete">🗑</button>
+                    <button onclick="window.prepararUpdateChofer(${chofer.id_chofer})" class="btn-edit" title="Editar">✎</button>
+                    <button onclick="window.toggleEstadoChofer(${chofer.id_chofer}, ${estaActivo})" 
+                            class="${estaActivo ? 'btn-desactivar' : 'btn-activar'}" 
+                            title="${estaActivo ? 'Desactivar' : 'Activar'}">
+                        ${estaActivo ? '🚫' : '✅'}
+                    </button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
     } catch (err) { console.error(err); }
 }
 
@@ -188,21 +194,24 @@ async function cargarCamiones() {
     try {
         const res = await fetch(`${BASE}/api/buses`);
         const buses = await res.json();
-        //se usa un emoji a falta de iconos😭
-        tbody.innerHTML = buses.map(bus => `
+        tbody.innerHTML = buses.map(bus => {
+            const unidadActiva = bus.activo;
+            return `
             <tr>
                 <td>🚌</td>
-                <td>${bus.numero_economico || bus.id.toString().padStart(3, '0')}</td>
+                <td>${bus.numero_economico}</td>
                 <td>${bus.placa}</td>
                 <td>${bus.modelo || 'N/A'}</td>
-                <td>${bus.asignaciones || '---'}</td>
-                <td><span class="status-badge ${bus.activo ? 'status-active' : 'status-inactive'}">${bus.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td><span class="status-badge ${unidadActiva ? 'status-active' : 'status-inactive'}">${unidadActiva ? 'Activo' : 'Inactivo'}</span></td>
                 <td class="actions">
-                    <button onclick="prepararUpdateBus(${bus.id})" class="btn-edit">✎</button>
-                    <button onclick="confirmarDeleteBus(${bus.id})" class="btn-delete">🗑</button>
+                    <button onclick="window.prepararUpdateBus(${bus.id_unidad})" class="btn-edit">✎</button>
+                    <button onclick="window.toggleEstadoUnidad(${bus.id_unidad}, ${unidadActiva})" 
+                            class="${unidadActiva ? 'btn-desactivar' : 'btn-activar'}">
+                        ${unidadActiva ? '🚫' : '✅'}
+                    </button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
     } catch (err) { console.error(err); }
 }
 
@@ -285,7 +294,7 @@ async function manejarSubmitBus(e) {
  */
 function llenarCamposChofer(data) {
     document.getElementById('modal-chofer-title').textContent = "Editar Chofer";
-    document.getElementById('chofer-id').value = data.id;
+    document.getElementById('chofer-id').value = data.id_chofer;
     document.getElementById('chofer-nombre').value = data.nombre;
     document.getElementById('chofer-apellido').value = data.apellido;
     document.getElementById('chofer-genero').value = data.genero || 'Hombre';
@@ -487,6 +496,30 @@ async function manejarSubmitParada(e) {
         await cargarParadas(idRuta);
     }
 }
+
+window.toggleEstadoChofer = async (id, estadoActual) => {
+    const nuevoEstado = !estadoActual;
+    if (confirm(nuevoEstado ? "¿Reactivar chofer?" : "¿Desactivar chofer?")) {
+        await fetch(`${BASE}/api/choferes/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ activo: nuevoEstado })
+        });
+        cargarChoferes();
+    }
+};
+
+window.toggleEstadoUnidad = async (id, estadoActual) => {
+    const nuevoEstado = !estadoActual;
+    if (confirm(nuevoEstado ? "¿Reactivar unidad?" : "¿Desactivar unidad?")) {
+        await fetch(`${BASE}/api/buses/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ activo: nuevoEstado })
+        });
+        cargarCamiones();
+    }
+};
 
 function confirmarCerrarSesion() {
     document.getElementById('modal-logout').style.display = 'block';
