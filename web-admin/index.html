@@ -24,13 +24,13 @@
         <!-- Barra Lateral -->
         <nav class="sidebar">
             <ul class="nav-links">
-                <li class="active"><img src="imagenes/home_sidebar.png" class="nav-icon"> Inicio</li>
-                <li><img src="imagenes/avatar_sidebar.png" class="nav-icon"> Choferes</li>
-                <li><img src="imagenes/autobus_sidebar.png" class="nav-icon"> Camiones</li>
-                <li><img src="imagenes/mapa_sidebar.png" class="nav-icon"> Rutas</li>
+                <li class="active"><img src="imagenes/home.png" class="nav-icon"> Inicio</li>
+                <li><img src="imagenes/driver.png" class="nav-icon"> Choferes</li>
+                <li><img src="imagenes/bus.png" class="nav-icon"> Camiones</li>
+                <li><img src="imagenes/ruta.png" class="nav-icon"> Rutas</li>
             </ul>
             <button class="btn-logout" onclick="confirmarCerrarSesion()">
-                <img src="imagenes/cerrarsesion.png" class="nav-icon"> Cerrar sesión
+                <img src="imagenes/logout.png" class="nav-icon"> Cerrar sesión
             </button>
 
 <!-- MODAL CERRAR SESIÓN -->
@@ -61,10 +61,10 @@
                 <section class="map-section">
                     <div id="map"></div>
                     <div class="map-details">
-                        <div class="detail-card"><p>Chofer activo</p><strong id="live-driver">---</strong></div>
-                        <div class="detail-card"><p>Turno</p><strong id="live-shift">---</strong></div>
-                        <div class="detail-card"><p>Camión</p><strong id="live-bus">---</strong></div>
-                        <div class="detail-card"><p>Placas</p><strong id="live-plate">---</strong></div>
+                        <div class="detail-card"><p id="label-driver">En ruta</p><strong id="live-driver">---</strong></div>
+                        <div class="detail-card"><p id="label-shift">Hora</p><strong id="live-shift">---</strong></div>
+                        <div class="detail-card"><p id="label-bus">Unidades activas</p><strong id="live-bus">---</strong></div>
+                        <div class="detail-card"><p id="label-plate">Estado señal</p><strong id="live-plate">---</strong></div>
                     </div>
                 </section>
 
@@ -142,6 +142,7 @@
     </main>
         </div>
 
+        <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="app.js"></script>
         
@@ -153,7 +154,7 @@
                     <span class="close-modal" onclick="cerrarModal('modal-chofer')">&times;</span>
                 </div>
                 <form id="form-chofer">
-                    <input type="hidden" id="chofer-id"> <!-- ID oculto para saber si editamos o creamos -->
+                    <input type="hidden" id="chofer-id">
                     <div class="form-group">
                         <label>Nombre(s):</label>
                         <input type="text" id="chofer-nombre" required placeholder="Ej. Juan">
@@ -170,7 +171,6 @@
                         <label>Unidad Asignada</label>
                         <select id="chofer-unidad-select">
                             <option value="">Sin asignar</option>
-                            
                         </select>
                     </div>
                     <div class="form-group">
@@ -181,6 +181,21 @@
                             <option value="Femenino">Femenino</option>
                             <option value="Otro">Otro</option>
                         </select>
+                    </div>
+                    <hr style="border-color:#eee; margin: 12px 0;">
+                    <p style="font-size:0.8rem; color:#888; margin-bottom:8px;">
+                        Credenciales de acceso a la app móvil
+                    </p>
+                    <div class="form-group">
+                        <label>Correo:</label>
+                        <input type="email" id="chofer-correo" placeholder="Ej. juan@potrobus.mx">
+                    </div>
+                    <div class="form-group">
+                        <label id="label-chofer-password">Contraseña:</label>
+                        <input type="password" id="chofer-password" placeholder="Mínimo 6 caracteres">
+                        <small id="hint-chofer-password" style="color:#aaa; display:none;">
+                            Dejar en blanco para no cambiar la contraseña actual
+                        </small>
                     </div>
                     <div class="modal-actions">
                         <button type="button" class="btn-cancel" onclick="cerrarModal('modal-chofer')">Cancelar</button>
