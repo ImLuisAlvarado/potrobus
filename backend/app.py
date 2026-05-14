@@ -124,6 +124,21 @@ def update_bus(id_unidad):
         return jsonify({"msg": "unidad actualizada"})
     return jsonify({"error": "no encontrada o sin cambios"}), 404
 
+@app.route("/api/buses/<int:id_unidad>/status", methods=["PATCH"])
+def toggle_bus_status(id_unidad):
+    data = request.json
+    nuevo_estado = data.get("activo")
+    
+    if nuevo_estado is None:
+        return jsonify({"error": "Falta el campo 'activo'"}), 400
+    
+
+    ok = Bus.set_status(id_unidad, nuevo_estado)
+    
+    if ok:
+        estado_str = "activado" if nuevo_estado else "desactivado"
+        return jsonify({"msg": f"Unidad {estado_str} con éxito"}), 200
+    return jsonify({"error": "No se pudo actualizar el estado o unidad no encontrada"}), 404
 
 @app.route("/api/buses/<int:id_unidad>", methods=["DELETE"])
 def delete_bus(id_unidad):
@@ -339,6 +354,22 @@ def update_chofer(id_chofer):
     if ok:
         return jsonify({"msg": "chofer actualizado"})
     return jsonify({"error": "no encontrado o sin cambios"}), 404
+
+@app.route("/api/choferes/<int:id_chofer>/status", methods=["PATCH"])
+def toggle_chofer_status(id_chofer):
+    data = request.json
+    nuevo_estado = data.get("activo")
+
+    if nuevo_estado is None:
+        return jsonify({"error": "Falta el campo 'activo'"}), 400
+    
+    ok = Driver.set_status(id_chofer, nuevo_estado)
+    
+    if ok:
+        estado_str = "activado" if nuevo_estado else "desactivado"
+        return jsonify({"msg": f"Chofer {estado_str} con éxito"}), 200
+    
+    return jsonify({"error": "No se pudo actualizar el estado del chofer"}), 404
 
 @app.route("/api/choferes/<int:id_chofer>", methods=["DELETE"])
 def delete_chofer(id_chofer):

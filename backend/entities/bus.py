@@ -89,6 +89,28 @@ class Bus:
                 cursor.close()
             if connection: 
                 connection.close()
+    
+    @staticmethod
+    def set_status(id_unidad, activo):
+        connection = None
+        cursor = None
+        try:
+            connection = get_connection()
+            cursor = connection.cursor()
+            cursor.execute("""
+                UPDATE unidad
+                SET activo = %s
+                WHERE id_unidad = %s
+            """, (activo, id_unidad))
+            connection.commit()
+            return cursor.rowcount > 0
+        except Exception as ex:
+            if connection: connection.rollback()
+            print(f"Error set_status: {ex}")
+            return False
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
 
     def delete(id_unidad):
         connection = None

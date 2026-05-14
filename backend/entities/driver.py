@@ -81,6 +81,26 @@ class Driver:
         finally:
             if cursor: cursor.close()
             if connection: connection.close()
+        
+    @staticmethod
+    def set_status(id_chofer, activo):
+        connection = None
+        cursor = None
+        try:
+            connection = get_connection()
+            cursor = connection.cursor()
+            cursor.execute("""
+                           UPDATE chofer SET activo = %s WHERE id_chofer = %s
+                           """, (activo, id_chofer))  
+            connection.commit()
+            return cursor.rowcount > 0
+        except Exception as ex:
+            if connection: connection.rollback()
+            print(f"Error set_status (Driver): {ex}")
+            return False
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()
 
     def delete(id_chofer):
         connection = None
