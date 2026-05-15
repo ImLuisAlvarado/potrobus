@@ -25,7 +25,7 @@ body {
     height: 70px;
 }
 
-.header-logo { height: 45px; }
+.header-logo { height: 55px; }
 
 .user-profile {
     display: flex;
@@ -34,8 +34,8 @@ body {
 }
 
 .avatar {
-    width: 45px;
-    height: 45px;
+    width: 35px;
+    height: 35px;
     border-radius: 50%;
     border: 2px solid white;
 }
@@ -408,3 +408,251 @@ td {
     font-family: 'Segoe UI', sans-serif;
     transition: background 0.3s;
 }
+/* Panel de notificaciones */
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        .notifications-header h3 { margin: 0; }
+        .btn-clear-notif {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .btn-clear-notif:hover { color: #e74c3c; }
+
+        .notif-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .notif-empty {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 16px 0;
+        }
+        .notif-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+            animation: notif-slide-in 0.3s ease;
+        }
+        @keyframes notif-slide-in {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .notif-salida  { border-left-color: #27ae60; background: #f0fdf4; }
+        .notif-llegada { border-left-color: #2980b9; background: #eff8ff; }
+        .notif-parada  { border-left-color: #f39c12; background: #fffbf0; }
+        .notif-retraso { border-left-color: #e74c3c; background: #fff5f5; }
+
+        .notif-icono { font-size: 18px; line-height: 1; margin-top: 2px; }
+        .notif-body  { display: flex; flex-direction: column; gap: 2px; }
+        .notif-mensaje { margin: 0; font-size: 13px; color: #333; font-weight: 500; }
+        .notif-hora    { color: #aaa; font-size: 11px; }
+
+        /* Panel de paradas */
+        .stop-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #f5f5f5;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        .stop-number {
+            background: #1A1A2E;
+            color: #fff;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .stop-name { color: #333; }
+
+        /* Paradas visitadas vs pendientes */
+        .stop-visitada {
+            background: #f0f0f0;
+            opacity: 0.6;
+        }
+        .stop-visitada .stop-name { color: #aaa; }
+        .stop-number-visitada {
+            background: #aaa !important;
+        }
+        .stop-check {
+            margin-left: auto;
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .stop-pendiente {
+            background: #f5f5f5;
+        }
+        .stop-pendiente:first-of-type {
+            background: #eff8ff;
+            border-left: 3px solid #2980b9;
+        }
+
+        /* ── Campana de notificaciones ── */
+        .notif-bell-wrapper {
+            position: relative;
+            margin-right: 16px;
+        }
+        .notif-bell-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            position: relative;
+            padding: 4px;
+        }
+        .notif-badge {
+            position: absolute;
+            top: -2px;
+            right: -4px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 17px;
+            height: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── Panel desplegable ── */
+        .notif-panel {
+            position: absolute;
+            top: 44px;
+            right: 0;
+            width: 320px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .notif-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .btn-clear-notif {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .btn-clear-notif:hover { color: #e74c3c; }
+        .notif-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .notif-empty {
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+            padding: 24px 0;
+        }
+        .notif-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+            margin-bottom: 6px;
+            animation: notif-slide-in 0.25s ease;
+        }
+        .notif-salida  { border-left-color: #27ae60; background: #f0fdf4; }
+        .notif-llegada { border-left-color: #2980b9; background: #eff8ff; }
+        .notif-parada  { border-left-color: #f39c12; background: #fffbf0; }
+        .notif-retraso { border-left-color: #e74c3c; background: #fff5f5; }
+        .notif-icono { font-size: 18px; line-height: 1; margin-top: 2px; }
+        .notif-body  { display: flex; flex-direction: column; gap: 2px; }
+        .notif-mensaje { margin: 0; font-size: 13px; color: #333; font-weight: 500; }
+        .notif-hora    { color: #aaa; font-size: 11px; }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border-left: 4px solid #ccc;
+            background: #fff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            min-width: 260px;
+            max-width: 340px;
+            pointer-events: all;
+            animation: toast-in 0.3s ease;
+        }
+        .toast-salida  { border-left-color: #27ae60; }
+        .toast-llegada { border-left-color: #2980b9; }
+        .toast-parada  { border-left-color: #f39c12; }
+        .toast-retraso { border-left-color: #e74c3c; }
+        .toast-icono   { font-size: 20px; }
+        .toast-body    { display: flex; flex-direction: column; gap: 2px; }
+        .toast-mensaje { margin: 0; font-size: 13px; font-weight: 500; color: #222; }
+        .toast-tipo    { font-size: 11px; color: #aaa; text-transform: capitalize; }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(30px); }
+        }
+        @keyframes notif-slide-in {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }

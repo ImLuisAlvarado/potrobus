@@ -112,7 +112,7 @@ class Route:
             cursor.execute("""
                 SELECT * FROM parada 
                 WHERE id_ruta = %s 
-                ORDER BY orden ASC
+                ORDER BY orden_parada ASC
             """, (id_ruta,))
             return cursor.fetchall()
         except Exception as ex:
@@ -129,7 +129,7 @@ class Route:
             connection = get_connection()
             cursor = connection.cursor()
             cursor.execute("""
-                INSERT INTO parada (id_ruta, nombre, latitud, longitud, orden)
+                INSERT INTO parada (id_ruta, nombre, latitud, longitud, orden_parada)
                 VALUES (%s, %s, %s, %s, %s)
             """, (id_ruta, nombre, latitud, longitud, orden))
             connection.commit()
