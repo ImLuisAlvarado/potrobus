@@ -142,3 +142,24 @@ class Route:
         finally:
             if cursor: cursor.close()
             if connection: connection.close()
+
+    @staticmethod
+    def get_by_unidad(id_unidad):
+        connection = None
+        cursor = None
+        try:
+            connection = get_connection()
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT r.*
+                FROM ruta r
+                INNER JOIN unidad u ON u.id_ruta = r.id_ruta
+                WHERE u.id_unidad = %s
+            """, (id_unidad,))
+            return cursor.fetchone()
+        except Exception as ex:
+            print(f"Error get_by_unidad: {ex}")
+            return None
+        finally:
+            if cursor: cursor.close()
+            if connection: connection.close()

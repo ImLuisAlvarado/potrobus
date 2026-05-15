@@ -17,7 +17,7 @@ class User:
             cursor = connection.cursor()
             
             query = """
-            INSERT INTO usuario (nombre, apellido, correo, password_hash, rol)
+            INSERT INTO usuario (nombre, apellido, correo, password, rol)
             VALUES (%s, %s, %s, %s, %s)
         """
 
@@ -69,8 +69,8 @@ class User:
     def verify_login(correo, password):
         user = User.get_by_email(correo)
         
-        if user and check_password_hash(user['password_hash'], password):
-            user.pop('password_hash', None) 
+        if user and check_password_hash(user['password'], password):
+            user.pop('password', None) 
             return user
             
         return None
