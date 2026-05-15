@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room, leave_room
 from messaging import publish_notificacion, publish_gps_kafka, start_messaging_consumers, set_socketio
 from kafka_consumer import start_kafka_consumer, analizar_coordenada
 import jwt
@@ -16,6 +16,7 @@ from entities.driver import Driver
 from tokenManager import create_token, token_required
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -26,7 +27,7 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 set_socketio(socketio)
 
-MODO_SIMULACION = False
+MODO_SIMULACION = False # Cambiar a False para producción con GPS real
 
 
 @app.route("/api/health")
@@ -81,19 +82,37 @@ def test_auth(current_user):
     }), 200
 
 @app.route("/api/buses", methods=["GET"])
-def list_buses():
+@token_required
+def list_buses(current_user):
     data = Bus.get_all()
     return jsonify(data)
 
 @app.route("/api/buses/activos", methods=["GET"])
-def list_buses_activos():
+@token_required
+def list_buses_activos(current_user):
     data = Bus.get_all()
     activos = [bus for bus in data if bus.get("activo")]
-    return jsonify(activos)
+    buses_en_servicio = []
+    for bus in activos:
+        ultima = Location.get_latest(bus["id_unidad"])
+        if ultima:
+            timestamp = ultima.get("timestamp")
+            if timestamp:
+                ahora = datetime.now(timezone.utc)
+                # timestamp viene como datetime de MySQL
+                if isinstance(timestamp, datetime):
+                    ts = timestamp.replace(tzinfo=timezone.utc)
+                else:
+                    ts = datetime.fromisoformat(str(timestamp)).replace(tzinfo=timezone.utc)
+                if ahora - ts < timedelta(minutes=5):
+                    buses_en_servicio.append(bus)
+    return jsonify(buses_en_servicio)
+
 
 
 @app.route("/api/buses", methods=["POST"])
-def create_bus():
+@token_required
+def create_bus(current_user):
     data = request.json
     if not data or not data.get("numero_economico") or not data.get("placa"):
         return jsonify({"error": "faltan campos requeridos"}), 400
@@ -109,7 +128,8 @@ def create_bus():
 
 
 @app.route("/api/buses/<int:id_unidad>", methods=["PUT"])
-def update_bus(id_unidad):
+@token_required
+def update_bus(current_user, id_unidad):
     data = request.json
     if not data:
         return jsonify({"error": "sin datos"}), 400
@@ -126,7 +146,8 @@ def update_bus(id_unidad):
     return jsonify({"error": "no encontrada o sin cambios"}), 404
 
 @app.route("/api/buses/<int:id_unidad>/status", methods=["PATCH"])
-def toggle_bus_status(id_unidad):
+@token_required
+def toggle_bus_status(current_user, id_unidad):
     data = request.json
     nuevo_estado = data.get("activo")
 
@@ -141,7 +162,8 @@ def toggle_bus_status(id_unidad):
     return jsonify({"error": "No se pudo actualizar el estado o unidad no encontrada"}), 404
 
 @app.route("/api/buses/<int:id_unidad>", methods=["DELETE"])
-def delete_bus(id_unidad):
+@token_required
+def delete_bus(current_user, id_unidad):
     ok = Bus.delete(id_unidad)
     if ok:
         return jsonify({"msg": "unidad desactivada"})
@@ -149,7 +171,8 @@ def delete_bus(id_unidad):
 
 
 @app.route("/api/buses/<int:id_unidad>", methods=["GET"])
-def get_bus(id_unidad):
+@token_required
+def get_bus(current_user, id_unidad):
     data = Bus.get_by_id(id_unidad)
     if data:
         return jsonify(data)
@@ -157,7 +180,8 @@ def get_bus(id_unidad):
 
 
 @app.route("/api/buses/<int:id_unidad>/estado", methods=["GET"])
-def get_estado_bus(id_unidad):
+@token_required
+def get_estado_bus(current_user, id_unidad):
     bus = Bus.get_by_id(id_unidad)
     if not bus:
         return jsonify({"error": "unidad no encontrada"}), 404
@@ -171,7 +195,8 @@ def get_estado_bus(id_unidad):
 
 
 @app.route("/api/buses/<int:id_unidad>/positions", methods=["GET"])
-def get_bus_positions(id_unidad):
+@token_required
+def get_bus_positions(current_user, id_unidad):
     data = Location.get_history(id_unidad)
     if data:
         return jsonify(data)
@@ -179,18 +204,30 @@ def get_bus_positions(id_unidad):
 
 
 @app.route("/api/buses/<int:id_unidad>/positions/latest", methods=["GET"])
-def get_latest_position(id_unidad):
+@token_required
+def get_latest_position(current_user, id_unidad):
     data = Location.get_latest(id_unidad)
     if data:
         return jsonify(data)
     return jsonify({"error": "sin_posicion"}), 404
 
 
+@app.route("/api/buses/<int:id_unidad>/ruta", methods=["GET"])
+@token_required
+def get_ruta_by_unidad(current_user, id_unidad):
+    ruta = Route.get_by_unidad(id_unidad)
+    if not ruta:
+        return jsonify({"error": "sin ruta asignada para esta unidad"}), 404
+    paradas = Route.get_paradas(ruta["id_ruta"])
+    return jsonify({**ruta, "paradas": paradas})
+
+
 # Endpoint /recorrido-activo eliminado - arquitectura simplificada sin tabla recorrido
 
 
 @app.route("/api/gps/position", methods=["POST"])
-def ingest_position():
+@token_required
+def ingest_position(current_user):
     data = request.json
     print("GPS RECIBIDO:", data)
     if not data or data.get("id_unidad") is None or data.get("lat") is None or data.get("lng") is None:
@@ -204,7 +241,7 @@ def ingest_position():
 
     Location.save(id_unidad, lat, lng)
 
-    publish_gps_kafka(lat, lng, bus_id=bus_id, id_recorrido=None)
+    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
 
     socketio.emit('gps_live', {
         "lat":       lat,
@@ -212,24 +249,27 @@ def ingest_position():
         "id_unidad": id_unidad,
         "bus_id":    bus_id,
         "timestamp": timestamp
-    })
+    }, room=f"unidad_{id_unidad}")
     return jsonify({"msg": "posición guardada"}), 201
 
 
 @app.route("/api/rutas", methods=["GET"])
-def list_rutas():
+@token_required
+def list_rutas(current_user):
     data = Route.get_all()
     return jsonify(data)
 
 @app.route("/api/rutas/<int:id_ruta>", methods=["GET"])
-def get_ruta(id_ruta):
+@token_required
+def get_ruta(current_user, id_ruta):
     data = Route.get_by_id(id_ruta)
     if data:
         return jsonify(data)
     return jsonify({"error": "ruta no encontrada"}), 404
 
 @app.route("/api/rutas", methods=["POST"])
-def create_ruta():
+@token_required
+def create_ruta(current_user):
     data = request.json
     if not data or not data.get("nombre") or not data.get("origen") or not data.get("destino"):
         return jsonify({"error": "faltan campos requeridos"}), 400
@@ -244,7 +284,8 @@ def create_ruta():
     return jsonify({"error": "no se pudo crear"}), 500
 
 @app.route("/api/rutas/<int:id_ruta>", methods=["PUT"])
-def update_ruta(id_ruta):
+@token_required
+def update_ruta(current_user, id_ruta):
     data = request.json
     if not data:
         return jsonify({"error": "sin datos"}), 400
@@ -260,19 +301,22 @@ def update_ruta(id_ruta):
     return jsonify({"error": "no encontrada o sin cambios"}), 404
 
 @app.route("/api/rutas/<int:id_ruta>", methods=["DELETE"])
-def delete_ruta(id_ruta):
+@token_required
+def delete_ruta(current_user, id_ruta):
     ok = Route.delete(id_ruta)
     if ok:
         return jsonify({"msg": "ruta eliminada"})
     return jsonify({"error": "no encontrada"}), 404
 
 @app.route("/api/rutas/<int:id_ruta>/paradas", methods=["GET"])
-def get_paradas(id_ruta):
+@token_required
+def get_paradas(current_user, id_ruta):
     data = Route.get_paradas(id_ruta)
     return jsonify(data)
 
 @app.route("/api/rutas/<int:id_ruta>/paradas", methods=["POST"])
-def add_parada(id_ruta):
+@token_required
+def add_parada(current_user, id_ruta):
     data = request.json
     if not data or not data.get("nombre"):
         return jsonify({"error": "faltan campos requeridos"}), 400
@@ -321,19 +365,22 @@ def login_chofer():
 
 
 @app.route("/api/choferes", methods=["GET"])
-def list_choferes():
+@token_required
+def list_choferes(current_user):
     data = Driver.get_all()
     return jsonify(data)
 
 @app.route("/api/choferes/<int:id_chofer>", methods=["GET"])
-def get_chofer(id_chofer):
+@token_required
+def get_chofer(current_user, id_chofer):
     data = Driver.get_by_id(id_chofer)
     if data:
         return jsonify(data)
     return jsonify({"error": "chofer no encontrado"}), 404
 
 @app.route("/api/choferes", methods=["POST"])
-def create_chofer():
+@token_required
+def create_chofer(current_user):
     data = request.json
     if not data or not data.get("nombre") or not data.get("apellido"):
         return jsonify({"error": "faltan campos requeridos"}), 400
@@ -350,7 +397,8 @@ def create_chofer():
     return jsonify({"error": "no se pudo crear"}), 500
 
 @app.route("/api/choferes/<int:id_chofer>", methods=["PUT"])
-def update_chofer(id_chofer):
+@token_required
+def update_chofer(current_user, id_chofer):
     data = request.json
     if not data:
         return jsonify({"error": "sin datos"}), 400
@@ -369,7 +417,8 @@ def update_chofer(id_chofer):
     return jsonify({"error": "no encontrado o sin cambios"}), 404
 
 @app.route("/api/choferes/<int:id_chofer>/status", methods=["PATCH"])
-def toggle_chofer_status(id_chofer):
+@token_required
+def toggle_chofer_status(current_user, id_chofer):
     data = request.json
     nuevo_estado = data.get("activo")
 
@@ -385,7 +434,8 @@ def toggle_chofer_status(id_chofer):
     return jsonify({"error": "No se pudo actualizar el estado del chofer"}), 404
 
 @app.route("/api/choferes/<int:id_chofer>", methods=["DELETE"])
-def delete_chofer(id_chofer):
+@token_required
+def delete_chofer(current_user, id_chofer):
     ok = Driver.delete(id_chofer)
     if ok:
         return jsonify({"msg": "chofer desactivado"})
@@ -393,7 +443,8 @@ def delete_chofer(id_chofer):
 
 
 @app.route("/api/notificaciones", methods=["POST"])
-def send_notificacion():
+@token_required
+def send_notificacion(current_user):
     data = request.json
     if not data or not data.get("tipo") or not data.get("mensaje"):
         return jsonify({"error": "faltan campos"}), 400
@@ -430,10 +481,24 @@ def handle_connect():
             return False
 
         print('Cliente WebSocket conectado!')
+        if id_unidad := request.args.get('id_unidad'):
+            join_room(f"unidad_{id_unidad}")
+            print(f"Cliente unido al room unidad_{id_unidad}")
         return True
     except Exception as e:
         print(f"Conexión rechazada: {e}")
         return False
+    
+
+@socketio.on('watch_unidad')
+def handle_watch(data):
+    if id_unidad := data.get('id_unidad'):
+        join_room(f"unidad_{id_unidad}")
+
+@socketio.on('unwatch_unidad')
+def handle_unwatch(data):
+    if id_unidad := data.get('id_unidad'):
+        leave_room(f"unidad_{id_unidad}")
 
 
 @socketio.on('test')
@@ -472,13 +537,13 @@ def gps_simulador_simple():
             'timestamp': time.strftime('%H:%M:%S')
         }
         print(f"LIVE GPS: {lat:.4f}, {lng:.4f} km/h:{data['velocidad']} {data['timestamp']}")
-        socketio.emit('gps_live', data)
+        socketio.emit('gps_live', data, room=f"unidad_{data['id_unidad']}")
         print("¡Se emitió la señal gps_live!")
 
-        Location.save(id_recorrido=1, lat=lat, lng=lng)
+        Location.save(id_unidad=1, lat=lat, lng=lng)
         print("Ubicación guardada en la base de datos")
 
-        publish_gps_kafka(lat, lng, bus_id="ABC-123", id_recorrido=1)
+        publish_gps_kafka(lat, lng, bus_id="ABC-123", id_unidad=1)
         analizar_coordenada(lat, lng)
 
         i += 1

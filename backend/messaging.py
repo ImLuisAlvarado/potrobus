@@ -75,14 +75,14 @@ def get_kafka_producer():
         api_version=(2, 5, 0)
     )
 
-def publish_gps_kafka(lat, lng, bus_id, id_recorrido):
+def publish_gps_kafka(lat, lng, bus_id, id_unidad):
     try:
         producer = get_kafka_producer()
         data = {
             "lat": lat,
             "lng": lng,
             "bus_id": bus_id,
-            "id_recorrido": id_recorrido
+            "id_unidad": id_unidad
         }
         producer.send('gps-coordinates', value=data)
         producer.flush()
