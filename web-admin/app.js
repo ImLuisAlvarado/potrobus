@@ -2,6 +2,40 @@ const BASE = "http://192.168.68.56:5500";
 
 // Variables globales para el mapa y capas
 window.map = null;
+
+//Iconos personalizados de Leaflet
+
+// Ícono de autobús usando bus_tracking.png
+const busIcon = L.icon({
+    iconUrl:     'imagenes/bus_tracking.png',
+    iconSize:    [48, 48],
+    iconAnchor:  [24, 48],   // punto de anclaje en la base del ícono
+    popupAnchor: [0, -48]
+});
+
+// Función para generar ícono de parada (círculo azul con número)
+function paradaIcon(numero) {
+    return L.divIcon({
+        className: '',
+        html: `<div style="
+            background: #2161ac;
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        ">${numero}</div>`,
+        iconSize:    [26, 26],
+        iconAnchor:  [13, 13],
+        popupAnchor: [0, -16]
+    });
+}
 window.busMarkers = {};
 window.paradaMarkers = [];
 window.rutaLine = null;
@@ -109,6 +143,9 @@ async function actualizarDashboardInicio() {
     } catch (err) {
         console.warn("Error en Dashboard:", err);
     }
+
+    // Cargar paradas en el sidebar
+    cargarParadasSidebar();
 }
 
 // Actualiza las 4 cards con el resumen general de la flota
@@ -166,11 +203,11 @@ async function cargarPosicionBusEnMapa(bus) {
         `;
 
         if (!window.busMarkers[id]) {
-            window.busMarkers[id] = L.marker([pos.lat, pos.lng])
+            window.busMarkers[id] = L.marker([pos.lat, pos.lng], { icon: busIcon })
                 .addTo(window.map)
                 .bindPopup(popup)
-                .on('click', () => mostrarDetallesBus(bus, pos))    // clic → detalle
-                .on('popupclose', () => restablecerResumen());       // cierre → resumen
+                .on('click', () => mostrarDetallesBus(bus, pos))
+                .on('popupclose', () => restablecerResumen());
         } else {
             window.busMarkers[id].setLatLng([pos.lat, pos.lng]);
             window.busMarkers[id].setPopupContent(popup);
@@ -179,6 +216,52 @@ async function cargarPosicionBusEnMapa(bus) {
     } catch (err) {
         console.error(`Error posición bus ${bus.id_unidad}:`, err);
         return false;
+    }
+}
+
+// Carga las paradas de la ruta con estado visitado/pendiente
+// id_unidad: opcional, si se pasa muestra el progreso de esa unidad
+async function cargarParadasSidebar(id_unidad = 1) {
+    const lista = document.getElementById('stops-list');
+    if (!lista) return;
+
+    try {
+        const res = await fetch(`${BASE}/api/buses/${id_unidad}/paradas-pendientes`);
+        if (!res.ok) { lista.innerHTML = '<p style="color:#aaa;font-size:13px">Sin paradas</p>'; return; }
+
+        const paradas = await res.json();
+        if (!paradas.length) { lista.innerHTML = '<p style="color:#aaa;font-size:13px">Sin paradas registradas</p>'; return; }
+
+        // Limpiar markers de paradas anteriores
+        if (window.paradaMarkers && window.paradaMarkers.length) {
+            window.paradaMarkers.forEach(m => window.map && window.map.removeLayer(m));
+        }
+        window.paradaMarkers = [];
+
+        lista.innerHTML = paradas.map((p, i) => {
+            const visitada = p.visitada;
+
+            // Agregar marker en el mapa si tiene coordenadas
+            if (p.latitud && p.longitud && window.map) {
+                const marker = L.marker(
+                    [parseFloat(p.latitud), parseFloat(p.longitud)],
+                    { icon: paradaIcon(p.orden_parada || i + 1) }
+                )
+                .addTo(window.map)
+                .bindPopup(`<strong>${p.nombre}</strong>${visitada ? '<br><small style="color:#27ae60">✓ Visitada</small>' : ''}`);
+                window.paradaMarkers.push(marker);
+            }
+
+            return `
+            <div class="stop-item ${visitada ? 'stop-visitada' : 'stop-pendiente'}">
+                <span class="stop-number ${visitada ? 'stop-number-visitada' : ''}">${p.orden_parada || i + 1}</span>
+                <span class="stop-name">${visitada ? `<s>${p.nombre}</s>` : p.nombre}</span>
+                ${visitada ? '<span class="stop-check">✓</span>' : ''}
+            </div>`;
+        }).join('');
+    } catch (err) {
+        lista.innerHTML = '<p style="color:#aaa;font-size:13px">Error al cargar paradas</p>';
+        console.error("Error cargando paradas sidebar:", err);
     }
 }
 
@@ -210,6 +293,11 @@ function conectarSocketFlota() {
         console.warn("⚠️ Socket desconectado:", reason);
     });
 
+    window.socket.on('notificacion', (data) => {
+        console.log("🔔 Notificación recibida:", data);
+        agregarNotificacion(data);
+    });
+
     window.socket.on('gps_live', (data) => {
         console.log("GPS recibido:", data);
         if (!data || data.lat == null || data.lng == null) return;
@@ -221,7 +309,7 @@ function conectarSocketFlota() {
         const bus = window.busesActivosCache[idBus];
 
         if (!window.busMarkers[idBus]) {
-            window.busMarkers[idBus] = L.marker(newPos)
+            window.busMarkers[idBus] = L.marker(newPos, { icon: busIcon })
                 .addTo(window.map)
                 .bindPopup(`<strong>Unidad: ${data.bus_id || idBus}</strong>`)
                 .on('click', () => {
@@ -236,6 +324,9 @@ function conectarSocketFlota() {
         if (window.busMarkers[idBus].isPopupOpen() && bus) {
             mostrarDetallesBus(bus, data);
         }
+
+        // Refrescar paradas para reflejar el progreso de la unidad activa
+        cargarParadasSidebar(idBus);
     });
 }
 
@@ -403,6 +494,110 @@ function abrirModal(modalId, data = null) {
         resetearTitulos(modalId);
         if (modalId === 'modal-chofer') poblarSelectUnidades(null);
     }
+}
+
+// --- NOTIFICACIONES EN TIEMPO REAL ---
+
+const ICONOS_NOTIF = {
+    salida:  { icono: '🚌', clase: 'notif-salida'  },
+    llegada: { icono: '🏁', clase: 'notif-llegada' },
+    parada:  { icono: '📍', clase: 'notif-parada'  },
+    retraso: { icono: '⚠️', clase: 'notif-retraso' }
+};
+
+let _notifCount  = 0;
+let _panelAbierto = false;
+
+function agregarNotificacion(data) {
+    const tipo   = data.tipo || 'parada';
+    const config = ICONOS_NOTIF[tipo] || { icono: '🔔', clase: 'notif-parada' };
+    const hora   = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+    // 1. Mostrar toast
+    mostrarToast(data, config, hora);
+
+    // 2. Agregar al log del panel
+    const lista = document.getElementById('notif-list');
+    if (lista) {
+        const empty = lista.querySelector('.notif-empty');
+        if (empty) empty.remove();
+
+        const item = document.createElement('div');
+        item.className = `notif-item ${config.clase}`;
+        item.innerHTML = `
+            <span class="notif-icono">${config.icono}</span>
+            <div class="notif-body">
+                <p class="notif-mensaje">${data.mensaje}</p>
+                <small class="notif-hora">${hora}</small>
+            </div>`;
+        lista.insertBefore(item, lista.firstChild);
+
+        const items = lista.querySelectorAll('.notif-item');
+        if (items.length > 30) items[items.length - 1].remove();
+    }
+
+    // 3. Actualizar badge si el panel está cerrado
+    if (!_panelAbierto) {
+        _notifCount++;
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+            badge.textContent = _notifCount > 9 ? '9+' : _notifCount;
+            badge.style.display = 'flex';
+        }
+    }
+}
+
+function mostrarToast(data, config, hora) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${data.tipo || 'parada'}`;
+    toast.innerHTML = `
+        <span class="toast-icono">${config.icono}</span>
+        <div class="toast-body">
+            <p class="toast-mensaje">${data.mensaje}</p>
+            <span class="toast-tipo">${data.tipo}</span>
+        </div>`;
+
+    container.appendChild(toast);
+
+    // Auto-cerrar en 4 segundos con animación de salida
+    setTimeout(() => {
+        toast.style.animation = 'toast-out 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel');
+    if (!panel) return;
+
+    _panelAbierto = !_panelAbierto;
+    panel.style.display = _panelAbierto ? 'block' : 'none';
+
+    // Limpiar badge al abrir
+    if (_panelAbierto) {
+        _notifCount = 0;
+        const badge = document.getElementById('notif-badge');
+        if (badge) badge.style.display = 'none';
+    }
+}
+
+// Cerrar panel al hacer clic fuera
+document.addEventListener('click', (e) => {
+    const wrapper = document.querySelector('.notif-bell-wrapper');
+    if (wrapper && !wrapper.contains(e.target) && _panelAbierto) {
+        toggleNotifPanel();
+    }
+});
+
+function limpiarNotificaciones() {
+    const lista = document.getElementById('notif-list');
+    if (lista) lista.innerHTML = '<p class="notif-empty">Sin notificaciones recientes</p>';
+    _notifCount = 0;
+    const badge = document.getElementById('notif-badge');
+    if (badge) badge.style.display = 'none';
 }
 
 function cerrarModal(modalId) {

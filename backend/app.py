@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from messaging import publish_notificacion, publish_gps_kafka, start_messaging_consumers, set_socketio
-from kafka_consumer import start_kafka_consumer, analizar_coordenada
+from kafka_consumer import start_kafka_consumer, analizar_coordenada, get_paradas_visitadas
 import jwt
 import random
 import logging
@@ -18,12 +18,19 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
+
+# Silenciar librerias verbosas manteniendo solo logs de la app
+logging.getLogger('kafka').setLevel(logging.WARNING)
+logging.getLogger('pika').setLevel(logging.WARNING)
+logging.getLogger('engineio').setLevel(logging.WARNING)
+logging.getLogger('socketio').setLevel(logging.WARNING)
+logging.getLogger('werkzeug').setLevel(logging.INFO)
 
 app = Flask(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
-socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
 set_socketio(socketio)
 
 MODO_SIMULACION = False
@@ -204,7 +211,7 @@ def ingest_position():
 
     Location.save(id_unidad, lat, lng)
 
-    publish_gps_kafka(lat, lng, bus_id=bus_id, id_recorrido=None)
+    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
 
     socketio.emit('gps_live', {
         "lat":       lat,
@@ -265,6 +272,21 @@ def delete_ruta(id_ruta):
     if ok:
         return jsonify({"msg": "ruta eliminada"})
     return jsonify({"error": "no encontrada"}), 404
+
+@app.route("/api/buses/<int:id_unidad>/paradas-pendientes", methods=["GET"])
+def get_paradas_pendientes(id_unidad):
+    """
+    Devuelve las paradas de la ruta con estado visitado/pendiente
+    para una unidad especifica, basado en el estado del kafka_consumer.
+    """
+    paradas = Route.get_paradas(1)  # Ruta ITSON — ampliar cuando haya multiples rutas
+    visitadas = get_paradas_visitadas(id_unidad)
+
+    for p in paradas:
+        p["visitada"] = p["id_parada"] in visitadas
+
+    return jsonify(paradas)
+
 
 @app.route("/api/rutas/<int:id_ruta>/paradas", methods=["GET"])
 def get_paradas(id_ruta):
@@ -475,11 +497,12 @@ def gps_simulador_simple():
         socketio.emit('gps_live', data)
         print("¡Se emitió la señal gps_live!")
 
-        Location.save(id_recorrido=1, lat=lat, lng=lng)
+        ID_UNIDAD_SIM = 1  # unidad simulada
+        Location.save(id_unidad=ID_UNIDAD_SIM, lat=lat, lng=lng)
         print("Ubicación guardada en la base de datos")
 
-        publish_gps_kafka(lat, lng, bus_id="ABC-123", id_recorrido=1)
-        analizar_coordenada(lat, lng)
+        publish_gps_kafka(lat, lng, bus_id="ABC-123", id_unidad=ID_UNIDAD_SIM)
+        analizar_coordenada(lat, lng, id_unidad=ID_UNIDAD_SIM)
 
         i += 1
         time.sleep(5)

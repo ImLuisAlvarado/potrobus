@@ -11,6 +11,23 @@
     <!-- Encabezado Superior -->
     <header class="main-header">
         <img src="imagenes/PotroBusLogoAlt.png" alt="Potrobus" class="header-logo">
+        <!-- Campana de notificaciones -->
+        <div class="notif-bell-wrapper" style="display:flex; align-items:center; margin-left:auto;">
+            <button class="notif-bell-btn" onclick="toggleNotifPanel()" title="Notificaciones">
+                <img src="imagenes/notifications.png" alt="Notificaciones" style="width:40px; height:40px;">
+                <span id="notif-badge" class="notif-badge" style="display:none;">0</span>
+            </button>
+            <div id="notif-panel" class="notif-panel" style="display:none;">
+                <div class="notif-panel-header">
+                    <span>Notificaciones</span>
+                    <button class="btn-clear-notif" onclick="limpiarNotificaciones()">Limpiar</button>
+                </div>
+                <div id="notif-list" class="notif-list">
+                    <p class="notif-empty">Sin notificaciones recientes</p>
+                </div>
+            </div>
+        </div>
+
         <div class="user-profile">
             <img src="imagenes/User-avatar.svg.png" alt="Admin" class="avatar">
             <div class="user-info">
@@ -141,6 +158,9 @@
         </div>
     </main>
         </div>
+
+        <!-- Toast container -->
+        <div id="toast-container" class="toast-container"></div>
 
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
