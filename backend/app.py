@@ -87,25 +87,65 @@ def list_buses(current_user):
     data = Bus.get_all()
     return jsonify(data)
 
+
+
 @app.route("/api/buses/activos", methods=["GET"])
 @token_required
 def list_buses_activos(current_user):
+
     data = Bus.get_all()
-    activos = [bus for bus in data if bus.get("activo")]
+
+    activos = [
+        bus for bus in data
+        if int(bus.get("activo", 0)) == 1
+    ]
+
     buses_en_servicio = []
+
     for bus in activos:
+
         ultima = Location.get_latest(bus["id_unidad"])
-        if ultima:
-            timestamp = ultima.get("timestamp")
-            if timestamp:
-                ahora = datetime.now(timezone.utc)
-                # timestamp viene como datetime de MySQL
-                if isinstance(timestamp, datetime):
-                    ts = timestamp.replace(tzinfo=timezone.utc)
-                else:
-                    ts = datetime.fromisoformat(str(timestamp)).replace(tzinfo=timezone.utc)
-                if ahora - ts < timedelta(minutes=5):
-                    buses_en_servicio.append(bus)
+
+        if not ultima:
+            continue
+
+        timestamp = ultima.get("timestamp")
+
+        if not timestamp:
+            continue
+
+        try:
+
+            # timestamp desde MySQL
+            if isinstance(timestamp, datetime):
+                ts = timestamp
+            else:
+                ts = datetime.fromisoformat(str(timestamp))
+
+            # IMPORTANTE:
+            # usar misma zona horaria local
+            ahora = datetime.now()
+
+            diferencia = abs((ahora - ts).total_seconds())
+
+            print("\n===================")
+            print("BUS:", bus["id_unidad"])
+            print("AHORA:", ahora)
+            print("TIMESTAMP:", ts)
+            print("SEGUNDOS DIF:", diferencia)
+
+            # 5 minutos = 300 segundos
+            if diferencia < 300:
+                print("AGREGADO")
+                buses_en_servicio.append(bus)
+            else:
+                print("NO AGREGADO")
+
+        except Exception as e:
+            print("ERROR:", e)
+
+    print("FINAL:", buses_en_servicio)
+
     return jsonify(buses_en_servicio)
 
 
