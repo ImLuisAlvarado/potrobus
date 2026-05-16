@@ -1,4 +1,4 @@
-const BASE = "http://192.168.68.56:5500";
+const BASE = "http://192.168.1.105:5500";
 
 // Variables globales para el mapa y capas
 window.map = null;
@@ -245,7 +245,7 @@ async function cargarParadasSidebar(id_unidad = 1) {
             if (p.latitud && p.longitud && window.map) {
                 const marker = L.marker(
                     [parseFloat(p.latitud), parseFloat(p.longitud)],
-                    { icon: paradaIcon(p.orden_parada || i + 1) }
+                    { icon: paradaIcon(p.orden || i + 1) }
                 )
                 .addTo(window.map)
                 .bindPopup(`<strong>${p.nombre}</strong>${visitada ? '<br><small style="color:#27ae60">✓ Visitada</small>' : ''}`);
@@ -254,7 +254,7 @@ async function cargarParadasSidebar(id_unidad = 1) {
 
             return `
             <div class="stop-item ${visitada ? 'stop-visitada' : 'stop-pendiente'}">
-                <span class="stop-number ${visitada ? 'stop-number-visitada' : ''}">${p.orden_parada || i + 1}</span>
+                <span class="stop-number ${visitada ? 'stop-number-visitada' : ''}">${p.orden || i + 1}</span>
                 <span class="stop-name">${visitada ? `<s>${p.nombre}</s>` : p.nombre}</span>
                 ${visitada ? '<span class="stop-check">✓</span>' : ''}
             </div>`;
@@ -326,7 +326,7 @@ function conectarSocketFlota() {
         }
 
         // Refrescar paradas para reflejar el progreso de la unidad activa
-        cargarParadasSidebar(idBus);
+        //cargarParadasSidebar(idBus);
     });
 }
 
