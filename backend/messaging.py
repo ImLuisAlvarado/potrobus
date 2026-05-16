@@ -7,11 +7,15 @@ _socketio = None
 _kafka_producer = None
 _kafka_producer_lock = threading.Lock()
 
-# ----------------------------------------------------------------
-# RabbitMQ — Notificaciones (salidas, llegadas, retrasos)
-# ----------------------------------------------------------------
 
 def get_rabbitmq_connection():
+    """
+    Establece y devuelve una conexión síncrona con el servidor de RabbitMQ.
+
+    Returns:
+        pika.BlockingConnection: Objeto de conexión configurado con las 
+        credenciales y parámetros del servidor.
+    """
     return pika.BlockingConnection(
         pika.ConnectionParameters(
             host='localhost',
@@ -22,10 +26,18 @@ def get_rabbitmq_connection():
         )
     )
 
+
 def publish_notificacion(tipo, mensaje, id_unidad=None):
     """
-    Publica una notificacion en RabbitMQ.
-    tipo: 'salida' | 'llegada' | 'parada' | 'retraso'
+    Publica un mensaje de notificación estructurado en la cola de RabbitMQ.
+
+    Args:
+        tipo (str): Categoría de la notificación ('salida', 'llegada', 'parada', 'retraso').
+        mensaje (str): Contenido textual del aviso.
+        id_unidad (int/str, optional): Identificador único del vehículo asociado. Defaults to None.
+
+    Returns:
+        bool: True si el mensaje se publicó correctamente, False en caso de error.
     """
     try:
         connection = get_rabbitmq_connection()
@@ -42,7 +54,7 @@ def publish_notificacion(tipo, mensaje, id_unidad=None):
             exchange='',
             routing_key='notificaciones',
             body=json.dumps(data),
-            properties=pika.BasicProperties(delivery_mode=2)  # persistente
+            properties=pika.BasicProperties(delivery_mode=2)
         )
         connection.close()
         print(f"NOTIFICACION → RabbitMQ: [{tipo}] {mensaje}")
@@ -53,14 +65,20 @@ def publish_notificacion(tipo, mensaje, id_unidad=None):
 
 
 def set_socketio(sio):
+    """
+    Asigna de forma global la instancia de Socket.IO para la retransmisión de eventos.
+
+    Args:
+        sio: Instancia del servidor o cliente Socket.IO activa.
+    """
     global _socketio
     _socketio = sio
 
 
 def consume_notificaciones():
     """
-    Consumidor RabbitMQ: lee la queue 'notificaciones' y las
-    emite al dashboard y app de estudiantes via Socket.IO.
+    Escucha de forma continua la cola de RabbitMQ, procesa las notificaciones entrantes
+    y las redirige en tiempo real a través de Socket.IO.
     """
     try:
         connection = get_rabbitmq_connection()
@@ -86,12 +104,14 @@ def consume_notificaciones():
         print(f"ERROR consumidor RabbitMQ: {ex}")
 
 
-# ----------------------------------------------------------------
-# Kafka — Stream de coordenadas GPS
-# ----------------------------------------------------------------
-
 def get_kafka_producer():
-    """Singleton: crea el producer una sola vez y lo reutiliza."""
+    """
+    Garantiza la creación segura (Thread-Safe) y el retorno de una única instancia 
+    del productor de Kafka (Patrón Singleton).
+
+    Returns:
+        KafkaProducer: Instancia del productor de Kafka, o None si falla la inicialización.
+    """
     global _kafka_producer
     with _kafka_producer_lock:
         if _kafka_producer is None:
@@ -109,7 +129,18 @@ def get_kafka_producer():
 
 
 def publish_gps_kafka(lat, lng, bus_id, id_unidad):
-    """Publica coordenadas GPS en el topic gps-coordinates de Kafka."""
+    """
+    Envía un paquete de coordenadas geográficas en tiempo real al topic de Kafka correspondiente.
+
+    Args:
+        lat (float): Latitud geográfica.
+        lng (float): Longitud geográfica.
+        bus_id (str/int): Identificador lógico de la ruta o autobús.
+        id_unidad (str/int): Identificador de la unidad física del vehículo.
+
+    Returns:
+        bool: True si los datos de geolocalización fueron enviados con éxito, False en caso contrario.
+    """
     try:
         producer = get_kafka_producer()
         if producer is None:
@@ -129,6 +160,11 @@ def publish_gps_kafka(lat, lng, bus_id, id_unidad):
 
 
 def start_messaging_consumers():
-    """Inicia el consumidor RabbitMQ en un hilo daemon."""
+    """
+    Inicializa los procesos de escucha de mensajería asíncrona.
+    
+    Lanza el consumidor de RabbitMQ en un hilo secundario (daemon) para no bloquear 
+    la ejecución del hilo principal de la aplicación.
+    """
     threading.Thread(target=consume_notificaciones, daemon=True).start()
     print("Consumidor RabbitMQ iniciado.")

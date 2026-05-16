@@ -1,15 +1,35 @@
 from persistence.db import get_connection
 
 class Bus:
+    """Clase que representa una unidad de transporte (Bus) y gestiona sus
+
+    operaciones CRUD en la base de datos.
+    """
 
     def __init__(self, id_unidad: int, numero_economico: str, modelo: str, placa: str, activo: bool):
+        """Inicializa una nueva instancia de la clase Bus.
+
+        Args:
+            id_unidad (int): Identificador único de la unidad.
+            numero_economico (str): Número económico asignado al bus.
+            modelo (str): Modelo o año del vehículo.
+            placa (str): Placa de circulación del bus.
+            activo (bool): Estado operativo de la unidad (True/False).
+        """
         self.id_unidad = id_unidad
         self.numero_economico = numero_economico
         self.modelo = modelo
         self.placa = placa
         self.activo = activo
 
+    @staticmethod
     def get_all():
+        """Obtiene todos los registros de la tabla unidad.
+
+        Returns:
+            list: Una lista de diccionarios con los datos de todas las unidades,
+            o una lista vacía si ocurre un error.
+        """
         connection = None
         cursor = None
         try:
@@ -26,7 +46,17 @@ class Bus:
             if connection: 
                 connection.close()
 
+    @staticmethod
     def get_by_id(id_unidad):
+        """Busca una unidad específica por su identificador único.
+
+        Args:
+            id_unidad (int): ID de la unidad a buscar.
+
+        Returns:
+            dict: Un diccionario con los datos de la unidad encontrada,
+            o None si no se encuentra o hay un error.
+        """
         connection = None
         cursor = None
         try:
@@ -43,7 +73,18 @@ class Bus:
             if connection: 
                 connection.close()
 
+    @staticmethod
     def create(numero_economico, modelo, placa):
+        """Registra una nueva unidad en la base de datos con estado activo por defecto.
+
+        Args:
+            numero_economico (str): Número económico de la nueva unidad.
+            modelo (str): Modelo del bus.
+            placa (str): Placa de circulación.
+
+        Returns:
+            int: El ID asignado al nuevo registro (lastrowid), o None si falla la inserción.
+        """
         connection = None
         cursor = None
         try:
@@ -66,7 +107,20 @@ class Bus:
             if connection: 
                 connection.close()
 
+    @staticmethod
     def update(id_unidad, numero_economico, modelo, placa, activo):
+        """Actualiza todos los campos de una unidad existente.
+
+        Args:
+            id_unidad (int): ID de la unidad a modificar.
+            numero_economico (str): Nuevo número económico.
+            modelo (str): Nuevo modelo.
+            placa (str): Nueva placa.
+            activo (bool): Nuevo estado de actividad.
+
+        Returns:
+            bool: True si la unidad fue actualizada con éxito, False en caso contrario.
+        """
         connection = None
         cursor = None
         try:
@@ -92,6 +146,15 @@ class Bus:
     
     @staticmethod
     def set_status(id_unidad, activo):
+        """Modifica únicamente el estado de activación de una unidad.
+
+        Args:
+            id_unidad (int): ID de la unidad a modificar.
+            activo (bool): Nuevo estado (True para activo, False para inactivo).
+
+        Returns:
+            bool: True si el estado se actualizó correctamente, False en caso contrario.
+        """
         connection = None
         cursor = None
         try:
@@ -112,7 +175,16 @@ class Bus:
             if cursor: cursor.close()
             if connection: connection.close()
 
+    @staticmethod
     def delete(id_unidad):
+        """Realiza un borrado lógico de la unidad, cambiando su estado a inactivo (FALSE).
+
+        Args:
+            id_unidad (int): ID de la unidad a desactivar.
+
+        Returns:
+            bool: True si se logró desactivar la unidad, False en caso contrario.
+        """
         connection = None
         cursor = None
         try:

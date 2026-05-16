@@ -2,8 +2,21 @@ from persistence.db import get_connection
 import hashlib
 
 class Driver:
+    """Clase que representa a un chofer y gestiona sus operaciones CRUD
+
+    y de autenticación en la base de datos.
+    """
 
     def __init__(self, id_chofer: int, nombre: str, apellido: str, telefono: str, activo: bool):
+        """Inicializa una nueva instancia de la clase Driver.
+
+        Args:
+            id_chofer (int): Identificador único del chofer.
+            nombre (str): Nombre(s) del chofer.
+            apellido (str): Apellido(s) del chofer.
+            telefono (str): Número de teléfono de contacto.
+            activo (bool): Estado operativo del chofer en el sistema.
+        """
         self.id_chofer = id_chofer
         self.nombre = nombre
         self.apellido = apellido
@@ -12,6 +25,12 @@ class Driver:
 
     @staticmethod
     def get_all():
+        """Obtiene la lista completa de choferes junto con el número económico de la unidad asignada.
+
+        Returns:
+            list: Una lista de diccionarios con la información detallada de los choferes,
+            incluyendo datos de su unidad si tienen una asociada.
+        """
         connection = None
         cursor = None
         try:
@@ -32,6 +51,14 @@ class Driver:
 
     @staticmethod
     def get_by_id(id_chofer):
+        """Busca un chofer específico por su ID, recuperando también el número económico de su unidad.
+
+        Args:
+            id_chofer (int): Identificador único del chofer a buscar.
+
+        Returns:
+            dict: Un diccionario con los datos del chofer si se encuentra, u None si no existe o falla.
+        """
         connection = None
         cursor = None
         try:
@@ -53,9 +80,18 @@ class Driver:
 
     @staticmethod
     def verify_login(correo, password):
-        """
-        Verifica credenciales del chofer para login desde la app Kotlin.
-        Devuelve el chofer (dict) si son validas, None si no.
+        """Valida las credenciales de acceso de un chofer mediante correo electrónico y contraseña.
+
+        La contraseña proporcionada es encriptada en SHA-256 para compararla con el hash almacenado.
+        Solo permite el acceso a cuentas que tengan el estado activo como verdadero.
+
+        Args:
+            correo (str): Correo electrónico del chofer.
+            password (str): Contraseña en texto plano a verificar.
+
+        Returns:
+            dict: Datos básicos del chofer y su unidad asignada si la autenticación es correcta,
+            u None en caso de credenciales inválidas o error de conexión.
         """
         connection = None
         cursor = None
@@ -80,6 +116,21 @@ class Driver:
 
     @staticmethod
     def create(nombre, apellido, telefono, id_unidad=None, correo=None, password=None):
+        """Registra un nuevo chofer en la base de datos con estado activo por defecto.
+
+        Si se proporciona una contraseña, se almacena de forma segura utilizando un hash SHA-256.
+
+        Args:
+            nombre (str): Nombre del chofer.
+            apellido (str): Apellido del chofer.
+            telefono (str): Teléfono del chofer.
+            id_unidad (int, optional): ID de la unidad de transporte asignada. Por defecto es None.
+            correo (str, optional): Correo electrónico para el inicio de sesión. Por defecto es None.
+            password (str, optional): Contraseña en texto plano para el inicio de sesión. Por defecto es None.
+
+        Returns:
+            int: El identificador único del nuevo registro generado (lastrowid), o None si falla.
+        """
         connection = None
         cursor = None
         try:
@@ -103,6 +154,24 @@ class Driver:
 
     @staticmethod
     def update(id_chofer, nombre, apellido, telefono, activo, id_unidad=None, correo=None, password=None):
+        """Actualiza la información de un chofer existente en el sistema.
+
+        Evalúa si se envía una nueva contraseña para actualizar su hash; de lo contrario,
+        mantiene intacta la contraseña existente en la base de datos.
+
+        Args:
+            id_chofer (int): ID del chofer a modificar.
+            nombre (str): Nuevo o actual nombre.
+            apellido (str): Nuevo o actual apellido.
+            telefono (str): Nuevo o actual teléfono.
+            activo (bool): Nuevo estado de actividad.
+            id_unidad (int, optional): Nueva unidad asignada. Por defecto es None.
+            correo (str, optional): Nuevo correo de acceso. Por defecto es None.
+            password (str, optional): Nueva contraseña en texto plano si se desea cambiar. Por defecto es None.
+
+        Returns:
+            bool: True si el registro fue actualizado de manera exitosa, False en caso contrario.
+        """
         connection = None
         cursor = None
         try:
@@ -136,6 +205,15 @@ class Driver:
 
     @staticmethod
     def set_status(id_chofer, activo):
+        """Actualiza exclusivamente el estado lógico de actividad de un chofer.
+
+        Args:
+            id_chofer (int): ID del chofer a modificar.
+            activo (bool): Estado a asignar (True para habilitado, False para deshabilitado).
+
+        Returns:
+            bool: True si el cambio de estado se guardó correctamente, False de lo contrario.
+        """
         connection = None
         cursor = None
         try:
@@ -154,6 +232,14 @@ class Driver:
 
     @staticmethod
     def delete(id_chofer):
+        """Realiza un borrado lógico del chofer, estableciendo su columna activo en FALSE.
+
+        Args:
+            id_chofer (int): ID del chofer a desactivar.
+
+        Returns:
+            bool: True si se ejecutó la desactivación correctamente, False si ocurrió un error.
+        """
         connection = None
         cursor = None
         try:
