@@ -15,7 +15,7 @@ if not SECRET_KEY:
 def create_token(user_data):
     payload = {
         'user_id': user_data['id_usuario'],
-        'email': user_data['correo'],
+        'correo': user_data['correo'],
         'rol': user_data['rol'],
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=2)
     }

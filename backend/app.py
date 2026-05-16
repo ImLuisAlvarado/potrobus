@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room, leave_room
 from messaging import publish_notificacion, publish_gps_kafka, start_messaging_consumers, set_socketio
 from kafka_consumer import start_kafka_consumer, analizar_coordenada, get_paradas_visitadas
 import jwt
@@ -16,6 +16,7 @@ from entities.driver import Driver
 from tokenManager import create_token, token_required
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timezone, timedelta
 
 load_dotenv()
 logging.basicConfig(level=logging.WARNING)
@@ -32,7 +33,7 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 socketio = SocketIO(app, cors_allowed_origins="*", logger=False, engineio_logger=False)
 set_socketio(socketio)
 
-MODO_SIMULACION = False
+MODO_SIMULACION = False # Cambiar a False para producción con GPS real
 
 
 @app.route("/api/health")
@@ -139,8 +140,60 @@ def list_buses_activos():
         Response: Lista en formato JSON de autobuses que tienen el estado activo.
     """
     data = Bus.get_all()
-    activos = [bus for bus in data if bus.get("activo")]
-    return jsonify(activos)
+
+    activos = [
+        bus for bus in data
+        if int(bus.get("activo", 0)) == 1
+    ]
+
+    buses_en_servicio = []
+
+    for bus in activos:
+
+        ultima = Location.get_latest(bus["id_unidad"])
+
+        if not ultima:
+            continue
+
+        timestamp = ultima.get("timestamp")
+
+        if not timestamp:
+            continue
+
+        try:
+
+            # timestamp desde MySQL
+            if isinstance(timestamp, datetime):
+                ts = timestamp
+            else:
+                ts = datetime.fromisoformat(str(timestamp))
+
+            # IMPORTANTE:
+            # usar misma zona horaria local
+            ahora = datetime.now()
+
+            diferencia = abs((ahora - ts).total_seconds())
+
+            print("\n===================")
+            print("BUS:", bus["id_unidad"])
+            print("AHORA:", ahora)
+            print("TIMESTAMP:", ts)
+            print("SEGUNDOS DIF:", diferencia)
+
+            # 5 minutos = 300 segundos
+            if diferencia < 300:
+                print("AGREGADO")
+                buses_en_servicio.append(bus)
+            else:
+                print("NO AGREGADO")
+
+        except Exception as e:
+            print("ERROR:", e)
+
+    print("FINAL:", buses_en_servicio)
+
+    return jsonify(buses_en_servicio)
+
 
 
 @app.route("/api/buses", methods=["POST"])
@@ -346,7 +399,7 @@ def ingest_position():
         "id_unidad": id_unidad,
         "bus_id":    bus_id,
         "timestamp": timestamp
-    })
+    }, room=f"unidad_{id_unidad}")
     return jsonify({"msg": "posición guardada"}), 201
 
 
@@ -727,6 +780,17 @@ def handle_connect():
 
     except Exception:
         return False
+    
+
+@socketio.on('watch_unidad')
+def handle_watch(data):
+    if id_unidad := data.get('id_unidad'):
+        join_room(f"unidad_{id_unidad}")
+
+@socketio.on('unwatch_unidad')
+def handle_unwatch(data):
+    if id_unidad := data.get('id_unidad'):
+        leave_room(f"unidad_{id_unidad}")
 
 
 @socketio.on('test')

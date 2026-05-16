@@ -5,7 +5,7 @@ from entities.user import User
 success = User.create(
     nombre="Prueba", 
     apellido="Usuario", 
-    correo="test@potrobus.mx", 
+    correo="test@itson.edu.mx", 
     password="mi_password_segura", 
     rol="estudiante"
 )
