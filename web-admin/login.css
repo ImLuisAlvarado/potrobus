@@ -6,7 +6,7 @@
 }
 
 body {
-    background-color: #0b2447; /* Fondo oscuro exterior */
+    background-color: #0b2447;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -26,7 +26,7 @@ body {
 .login-sidebar {
     flex: 1;
     background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), 
-                url('imagenes/potrobusFondo.jpg'); /* Reemplazar con la foto del bus */
+                url('imagenes/potrobusFondo.jpg');
     background-size: cover;
     background-position: center;
     color: white;
