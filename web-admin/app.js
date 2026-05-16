@@ -4,7 +4,7 @@
  * WebSockets (Socket.IO) y las operaciones CRUD para la gestión de la flota.
  */
 
-const BASE = "http://192.168.1.108:5500";
+const BASE = "http://192.168.1.13:5500";
 
 window.map = null;
 window.busMarkers = {};
@@ -130,6 +130,12 @@ async function actualizarDashboardInicio() {
 
         window.busesActivosCache = {};
         busesActivos.forEach(b => { window.busesActivosCache[b.id_unidad] = b; });
+        if (window.socket && window.socket.connected) {
+    busesActivos.forEach(b => {
+        window.socket.emit('watch_unidad', { id_unidad: b.id_unidad });
+        console.log(`👁 Watching unidad ${b.id_unidad}`);
+    });
+}
 
         const idsActivos = busesActivos.map(b => b.id_unidad.toString());
         Object.keys(window.busMarkers).forEach(id => {
@@ -303,8 +309,13 @@ function conectarSocketFlota() {
     });
 
     window.socket.on('connect', () => {
-        console.log("✅ Socket conectado:", window.socket.id);
+    console.log("✅ Socket conectado:", window.socket.id);
+
+    Object.keys(window.busesActivosCache).forEach(id => {
+        window.socket.emit('watch_unidad', { id_unidad: parseInt(id) });
+        console.log(`👁 Watching unidad ${id}`);
     });
+});
 
     window.socket.on('connect_error', (err) => {
         console.error("❌ Error de conexión socket:", err.message);

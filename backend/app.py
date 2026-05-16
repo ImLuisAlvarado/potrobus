@@ -391,7 +391,6 @@ def ingest_position():
 
     Location.save(id_unidad, lat, lng)
 
-    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
 
     socketio.emit('gps_live', {
         "lat":       lat,
@@ -400,6 +399,9 @@ def ingest_position():
         "bus_id":    bus_id,
         "timestamp": timestamp
     }, room=f"unidad_{id_unidad}")
+
+    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
+    
     return jsonify({"msg": "posición guardada"}), 201
 
 
@@ -519,6 +521,14 @@ def get_paradas_pendientes(id_unidad):
         p["visitada"] = p["id_parada"] in visitadas
 
     return jsonify(paradas)
+
+@app.route("/api/buses/<int:id_unidad>/ruta", methods=["GET"])
+def get_ruta_by_unidad(id_unidad):
+    ruta = Route.get_by_unidad(id_unidad)
+    if not ruta:
+        return jsonify({"error": "sin ruta asignada para esta unidad"}), 404
+    paradas = Route.get_paradas(ruta["id_ruta"])
+    return jsonify({**ruta, "paradas": paradas})
 
 
 @app.route("/api/rutas/<int:id_ruta>/paradas", methods=["GET"])
@@ -764,20 +774,18 @@ def handle_connect():
     """
     try:
         token = request.args.get('token')
-
         if not token:
             return False
-
         try:
             payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            return True
-
         except jwt.ExpiredSignatureError:
             return False
-
         except jwt.InvalidTokenError:
             return False
 
+        if id_unidad := request.args.get('id_unidad'):
+            join_room(f"unidad_{id_unidad}")
+        return True
     except Exception:
         return False
     
