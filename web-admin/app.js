@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Script de administración para la plataforma PotroBus.
+ * Gestiona el mapa interactivo (Leaflet), la telemetría en tiempo real mediante
+ * WebSockets (Socket.IO) y las operaciones CRUD para la gestión de la flota.
+ */
+
+
 const BASE = "http://192.168.1.105:5500";
 
 // Variables globales para el mapa y capas
@@ -117,9 +124,18 @@ async function actualizarDashboardInicio() {
 
         const busesActivos = await resBuses.json();
 
+
         // Actualizar caché global
         window.busesActivosCache = {};
         busesActivos.forEach(b => { window.busesActivosCache[b.id_unidad] = b; });
+
+        if (window.socket && window.socket.connected) {
+    busesActivos.forEach(b => {
+        window.socket.emit('watch_unidad', { id_unidad: b.id_unidad });
+        console.log(`👁 Watching unidad ${b.id_unidad}`);
+    });
+}
+
 
         // Limpiar del mapa buses que ya no están activos
         const idsActivos = busesActivos.map(b => b.id_unidad.toString());
@@ -280,10 +296,16 @@ function conectarSocketFlota() {
         query: { token }
     });
 
-    // FIX #5: agregar handlers de conexión para diagnóstico y reconexión
-    window.socket.on('connect', () => {
-        console.log("✅ Socket conectado:", window.socket.id);
+
+   window.socket.on('connect', () => {
+    console.log("✅ Socket conectado:", window.socket.id);
+
+    Object.keys(window.busesActivosCache).forEach(id => {
+        window.socket.emit('watch_unidad', { id_unidad: parseInt(id) });
+        console.log(`👁 Watching unidad ${id}`);
+
     });
+});
 
     window.socket.on('connect_error', (err) => {
         console.error("❌ Error de conexión socket:", err.message);

@@ -260,17 +260,12 @@ def get_latest_position(current_user, id_unidad):
 
 
 @app.route("/api/buses/<int:id_unidad>/ruta", methods=["GET"])
-@token_required
-def get_ruta_by_unidad(current_user, id_unidad):
+def get_ruta_by_unidad(id_unidad):
     ruta = Route.get_by_unidad(id_unidad)
     if not ruta:
         return jsonify({"error": "sin ruta asignada para esta unidad"}), 404
     paradas = Route.get_paradas(ruta["id_ruta"])
     return jsonify({**ruta, "paradas": paradas})
-
-
-# Endpoint /recorrido-activo eliminado - arquitectura simplificada sin tabla recorrido
-
 
 @app.route("/api/gps/position", methods=["POST"])
 @token_required
@@ -288,8 +283,6 @@ def ingest_position(current_user):
 
     Location.save(id_unidad, lat, lng)
 
-    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
-
     socketio.emit('gps_live', {
         "lat":       lat,
         "lng":       lng,
@@ -297,6 +290,8 @@ def ingest_position(current_user):
         "bus_id":    bus_id,
         "timestamp": timestamp
     }, room=f"unidad_{id_unidad}")
+
+    publish_gps_kafka(lat, lng, bus_id=bus_id, id_unidad=id_unidad)
     return jsonify({"msg": "posición guardada"}), 201
 
 
